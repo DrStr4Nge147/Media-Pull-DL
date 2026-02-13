@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ViewMode, DownloadItem, DownloadStatus, AppSettings, Preset } from './types';
+import { ViewMode, DownloadItem, DownloadStatus, AppSettings, Preset, DownloadStrategy } from './types';
 import DownloadForm from './components/DownloadForm';
 import QueueList from './components/QueueList';
 import ActivityLog from './components/ActivityLog';
@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [queue, setQueue] = useState<DownloadItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [downloadStrategy, setDownloadStrategy] = useState<DownloadStrategy>('SEQUENTIAL');
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('yt_dlp_settings');
     return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
@@ -80,8 +81,32 @@ const App: React.FC = () => {
       w.checkYtDlpUpdate();
     }
 
+    if (typeof w.onYtDlpProgress === 'function') {
+      w.onYtDlpProgress((data: { id: string; progress: number }) => {
+        setQueue(prev => prev.map(item => item.id === data.id ? { ...item, progress: data.progress } : item));
+      });
+    }
+    if (typeof w.onYtDlpLog === 'function') {
+      w.onYtDlpLog((data: { id: string; log: string }) => {
+        const isProgressLine = data.log.includes('[download]');
+        setQueue(prev => prev.map(item => {
+          if (item.id !== data.id) return item;
+          if (!isProgressLine) return { ...item, logs: [...item.logs, data.log] };
+
+          const lastIdx = item.logs.length - 1;
+          if (lastIdx >= 0 && item.logs[lastIdx]?.includes('[download]')) {
+            const nextLogs = item.logs.slice();
+            nextLogs[lastIdx] = data.log;
+            return { ...item, logs: nextLogs };
+          }
+          return { ...item, logs: [...item.logs, data.log] };
+        }));
+      });
+    }
+
     return () => {
       if (typeof w.removeUpdateListeners === 'function') w.removeUpdateListeners();
+      if (typeof w.removeAllYtDlpListeners === 'function') w.removeAllYtDlpListeners();
     };
   }, []);
 
@@ -169,8 +194,48 @@ const App: React.FC = () => {
     setQueue(prev => [...prev, newItem]);
 
     if (viewMode === 'SINGLE') {
-      startSequentialDownload([...queue, newItem]);
+      startBatchDownload([...queue, newItem]);
     }
+  };
+
+  const startBatchDownload = async (currentQueue: DownloadItem[]) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
+    if (downloadStrategy === 'SEQUENTIAL' || viewMode === 'SINGLE') {
+      await startSequentialDownload(currentQueue);
+    } else {
+      await startSimultaneousDownload(currentQueue);
+    }
+  };
+
+  const startSimultaneousDownload = async (currentQueue: DownloadItem[]) => {
+    const pendingItems = currentQueue.filter(item =>
+      item.status !== DownloadStatus.COMPLETED &&
+      item.status !== DownloadStatus.FAILED &&
+      item.status !== DownloadStatus.PAUSED
+    );
+
+    if (pendingItems.length === 0) {
+      setIsProcessing(false);
+      return;
+    }
+
+    const downloadPromises = pendingItems.map(async (item) => {
+      updateItemStatus(item.id, DownloadStatus.DOWNLOADING);
+      try {
+        await realYtDlpDownload(item);
+        updateItemStatus(item.id, DownloadStatus.COMPLETED);
+        setHistory(prev => [{ ...item, status: DownloadStatus.COMPLETED, timestamp: Date.now() }, ...prev]);
+      } catch (e) {
+        updateItemLogsSmart(item.id, `[Error] ${e instanceof Error ? e.message : String(e)}`);
+        updateItemStatus(item.id, DownloadStatus.FAILED);
+        setHistory(prev => [{ ...item, status: DownloadStatus.FAILED, timestamp: Date.now() }, ...prev]);
+      }
+    });
+
+    await Promise.all(downloadPromises);
+    setIsProcessing(false);
   };
 
   const startSequentialDownload = async (currentQueue: DownloadItem[]) => {
@@ -202,11 +267,7 @@ const App: React.FC = () => {
 
       // Real yt-dlp execution
       try {
-        await realYtDlpDownload(item, (progress) => {
-          updateItemProgress(item.id, progress);
-        }, (log) => {
-          updateItemLogsSmart(item.id, log);
-        });
+        await realYtDlpDownload(item);
         updateItemStatus(item.id, DownloadStatus.COMPLETED);
         // Add to history
         setHistory(prev => [{ ...item, status: DownloadStatus.COMPLETED, timestamp: Date.now() }, ...prev]);
@@ -225,27 +286,13 @@ const App: React.FC = () => {
     processNext(0);
   };
 
-  const realYtDlpDownload = async (item: DownloadItem, onProgress: (p: number) => void, onLog: (l: string) => void) => {
+  const realYtDlpDownload = async (item: DownloadItem) => {
     const w = window as any;
     if (typeof w.runYtDlp !== 'function') {
       throw new Error('yt-dlp runner not available (not running in Electron?)');
     }
 
-    // Wire progress/log listeners for this item
-    const progressHandler = (data: { id: string; progress: number }) => {
-      if (data.id === item.id) onProgress(data.progress);
-    };
-    const logHandler = (data: { id: string; log: string }) => {
-      if (data.id === item.id) onLog(data.log);
-    };
-    w.onYtDlpProgress(progressHandler);
-    w.onYtDlpLog(logHandler);
-
-    try {
-      await w.runYtDlp({ ...item, id: item.id });
-    } finally {
-      w.removeAllYtDlpListeners();
-    }
+    await w.runYtDlp({ ...item, id: item.id });
   };
 
   const updateItemStatus = (id: string, status: DownloadStatus) => {
@@ -524,8 +571,8 @@ const App: React.FC = () => {
               <div className="bg-purple-600 w-12 h-12 rounded-2xl flex items-center justify-center mb-5 shadow-lg shadow-purple-900/30">
                 <i className="fa-solid fa-list-check text-xl"></i>
               </div>
-              <h3 className="text-lg font-bold mb-2">Queue Mode</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">Build a list and run them sequentially in one click.</p>
+              <h3 className="text-lg font-bold mb-2">Multiple Download</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">Build a list and download them sequentially or simultaneously.</p>
             </button>
 
             <button
@@ -555,7 +602,7 @@ const App: React.FC = () => {
             <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700">
               <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
                 <i className={`fa-solid ${viewMode === 'SINGLE' ? 'fa-bolt text-blue-400' : 'fa-list-check text-purple-400'}`}></i>
-                {viewMode === 'SINGLE' ? 'Quick Download' : 'Add to Queue'}
+                {viewMode === 'SINGLE' ? 'Quick Download' : 'Multiple Download'}
               </h3>
               <DownloadForm
                 onAdd={addToQueue}
@@ -570,19 +617,41 @@ const App: React.FC = () => {
 
             {viewMode === 'QUEUE' && totalItems > 0 && (
               <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-sm uppercase tracking-wider text-slate-400">Queue Actions</h3>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-slate-400">Download Strategy</h3>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <button
+                    onClick={() => setDownloadStrategy('SEQUENTIAL')}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${downloadStrategy === 'SEQUENTIAL'
+                      ? 'bg-blue-600/20 border-blue-500 text-blue-400 shadow-lg shadow-blue-500/10'
+                      : 'bg-slate-900 border-slate-700 text-slate-500 hover:border-slate-500'}`}
+                  >
+                    <i className="fa-solid fa-arrow-down-1-9 text-lg"></i>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Sequential</span>
+                  </button>
+                  <button
+                    onClick={() => setDownloadStrategy('SIMULTANEOUS')}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${downloadStrategy === 'SIMULTANEOUS'
+                      ? 'bg-orange-600/20 border-orange-500 text-orange-400 shadow-lg shadow-orange-500/10'
+                      : 'bg-slate-900 border-slate-700 text-slate-500 hover:border-slate-500'}`}
+                  >
+                    <i className="fa-solid fa-arrows-down-to-line text-lg"></i>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Simultaneous</span>
+                  </button>
+                </div>
+
                 <button
                   disabled={isProcessing || totalItems === 0}
-                  onClick={() => startSequentialDownload(queue)}
+                  onClick={() => startBatchDownload(queue)}
                   className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all ${isProcessing
                     ? 'bg-slate-700 cursor-not-allowed opacity-50'
                     : 'bg-green-600 hover:bg-green-500 shadow-lg shadow-green-900/20 active:scale-95'
                     }`}
                 >
                   <i className="fa-solid fa-play"></i>
-                  {isProcessing ? 'Processing Queue...' : 'Start Batch Download'}
+                  {isProcessing ? 'Processing...' : 'Start Download'}
                 </button>
               </div>
             )}
@@ -594,7 +663,7 @@ const App: React.FC = () => {
                 <div className="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center shrink-0">
                   <h3 className="font-bold flex items-center gap-2">
                     <i className="fa-solid fa-layer-group text-slate-400"></i>
-                    Active Queue
+                    Batch List
                   </h3>
                   <div className="flex items-center gap-4">
                     <button
@@ -634,7 +703,7 @@ const App: React.FC = () => {
                 <div className="bg-slate-800 w-20 h-20 rounded-full flex items-center justify-center mb-6">
                   <i className="fa-solid fa-hourglass-start text-3xl text-slate-600"></i>
                 </div>
-                <h3 className="text-xl font-bold text-slate-400 mb-2">Queue is empty</h3>
+                <h3 className="text-xl font-bold text-slate-400 mb-2">Batch list is empty</h3>
                 <p className="text-slate-500 max-w-xs">Fill out the form to the left to start adding your downloads.</p>
               </div>
             )}

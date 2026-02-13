@@ -37,3 +37,5 @@ export interface Preset {
 }
 
 export type ViewMode = 'SINGLE' | 'QUEUE' | 'HISTORY';
+
+export type DownloadStrategy = 'SEQUENTIAL' | 'SIMULTANEOUS';

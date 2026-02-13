@@ -26,7 +26,7 @@ const QueueList: React.FC<Props> = ({
   return (
     <div className="h-full overflow-y-auto divide-y divide-slate-800 custom-scrollbar">
       {items.map((item, index) => {
-        const isActive = index === currentIndex;
+        const isItemActive = item.status === DownloadStatus.DOWNLOADING || item.status === DownloadStatus.PAUSED;
         const isSelected = item.id === selectedId;
 
         return (
@@ -35,7 +35,7 @@ const QueueList: React.FC<Props> = ({
             onClick={() => onSelect?.(item.id)}
             className={`p-4 cursor-pointer transition-all border-l-4 ${isSelected
               ? 'bg-blue-900/20 border-blue-500 shadow-inner'
-              : isActive
+              : isItemActive
                 ? 'bg-slate-800/20 border-blue-500/30'
                 : 'hover:bg-slate-800/40 border-transparent'
               }`}
@@ -86,7 +86,7 @@ const QueueList: React.FC<Props> = ({
                 </button>
 
                 <StatusBadge status={item.status} />
-                {isActive && (item.status === DownloadStatus.DOWNLOADING || item.status === DownloadStatus.PAUSED) && (
+                {(item.status === DownloadStatus.DOWNLOADING || item.status === DownloadStatus.PAUSED) && (
                   <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                     {item.status === DownloadStatus.DOWNLOADING ? (
                       <button
@@ -119,8 +119,8 @@ const QueueList: React.FC<Props> = ({
                     e.stopPropagation();
                     onRemove(item.id);
                   }}
-                  disabled={isActive}
-                  className={`text-slate-600 hover:text-red-400 transition-colors ${isActive ? 'opacity-20 cursor-not-allowed' : ''}`}
+                  disabled={item.status === DownloadStatus.DOWNLOADING || item.status === DownloadStatus.PAUSED}
+                  className={`text-slate-600 hover:text-red-400 transition-colors ${item.status === DownloadStatus.DOWNLOADING || item.status === DownloadStatus.PAUSED ? 'opacity-20 cursor-not-allowed' : ''}`}
                 >
                   <i className="fa-solid fa-xmark"></i>
                 </button>
