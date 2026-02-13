@@ -525,19 +525,19 @@ const App: React.FC = () => {
           )}
           {viewMode && (
             <button
+              onClick={resetView}
+              className="bg-slate-700 hover:bg-slate-600 transition-colors px-4 py-2 rounded-lg font-medium text-sm"
+            >
+              Switch Mode
+            </button>
+          )}
+          {viewMode && (
+            <button
               onClick={() => setShowSettings(true)}
               className="bg-slate-700 hover:bg-slate-600 transition-colors p-3 rounded-lg"
               title="Settings & Presets"
             >
               <i className="fa-solid fa-sliders"></i>
-            </button>
-          )}
-          {viewMode && (
-            <button
-              onClick={resetView}
-              className="bg-slate-700 hover:bg-slate-600 transition-colors px-4 py-2 rounded-lg font-medium text-sm"
-            >
-              Switch Mode
             </button>
           )}
         </div>
