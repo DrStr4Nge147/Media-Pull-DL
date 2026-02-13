@@ -2,7 +2,10 @@
 
 > A powerful, sleek, and high-performance media downloader built on top of `yt-dlp` and powered by Electron.
 
+
 Media-Pull DL provides a premium, intuitive interface for downloading media from hundreds of supported websites. Whether you're grabbing a single video or managing a massive download queue, Media-Pull DL handles it with ease, providing real-time terminal feedback and a comprehensive download history.
+
+![Media-Pull DL UI Interface](public/assets/Media-Pull%20DL%20UI%20Interface.PNG)
 
 ---
 

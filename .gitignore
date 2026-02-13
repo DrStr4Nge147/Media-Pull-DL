@@ -40,3 +40,6 @@ desktop.ini
 
 # Vite
 vite.config.ts.timestamp-*
+
+# Static Website
+Website/
