@@ -58,7 +58,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, isProcessing, mode, settings, sh
         }
 
         if (data.title && !filename) {
-          setFilename(data.title.replace(/[\\/:*?"<>|]/g, '_'));
+          setFilename(data.title.replace(/[\\/:*?"<>|]/g, '_').replace(/\.+$/, ''));
         }
       } catch (e) {
         console.error('Metadata fetch failed:', e);

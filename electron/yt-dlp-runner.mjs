@@ -163,7 +163,10 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
   await fs.mkdir(resolvedDest, { recursive: true });
 
   // If filename doesn't have a template/extension, append %(ext)s
-  const finalFilename = filename.includes('%(') || filename.includes('.') ? filename : `${filename}.%(ext)s`;
+  // We check for %(ext)s specifically because titles often contain dots.
+  // Also trim trailing dots which are problematic on Windows.
+  let sanitizedFilename = filename.replace(/\.+$/, '');
+  const finalFilename = sanitizedFilename.includes('%(ext)s') ? sanitizedFilename : `${sanitizedFilename}.%(ext)s`;
   const outputPathTemplate = path.join(resolvedDest, finalFilename);
 
   const args = [
