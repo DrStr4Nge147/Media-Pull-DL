@@ -4,7 +4,7 @@
   "version": "0.1.5",
   "main": "electron/main.mjs",
   "description": "A powerful yt-dlp based media downloader",
-  "author": "MediaPull",
+  "author": "Media-Pull",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:3000 && cross-env VITE_DEV_SERVER_URL=http://localhost:3000 electron ./electron/main.mjs\"",
@@ -15,7 +15,7 @@
   },
   "build": {
     "appId": "com.mediapull.dl",
-    "productName": "MediaPull DL",
+    "productName": "Media-Pull",
     "directories": {
       "output": "dist_electron",
       "buildResources": "public"
@@ -29,7 +29,8 @@
       "target": [
         "portable"
       ],
-      "icon": "public/logo.png"
+      "icon": "public/logo.png",
+      "artifactName": "Media-Pull.${ext}"
     },
     "extraResources": [
       {
