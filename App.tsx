@@ -44,6 +44,7 @@ const App: React.FC = () => {
   });
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
   const [appUpdateInfo, setAppUpdateInfo] = useState<{ current: string; latest: string; url: string } | null>(null);
+  const [showAppUpdateModal, setShowAppUpdateModal] = useState(false);
 
   // Update detection
   useEffect(() => {
@@ -112,6 +113,7 @@ const App: React.FC = () => {
     if (typeof w.onAppUpdateAvailable === 'function') {
       w.onAppUpdateAvailable((data: { current: string; latest: string; url: string }) => {
         setAppUpdateInfo(data);
+        setShowAppUpdateModal(true);
       });
     }
 
@@ -420,7 +422,61 @@ const App: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col max-w-7xl mx-auto p-4 md:p-6 lg:p-8 overflow-hidden select-none">
-      {/* Top Banners Removed */}
+      {/* App Update Modal */}
+      {showAppUpdateModal && appUpdateInfo && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-purple-500/30 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl shadow-purple-900/50 animate-fadeIn">
+            <div className="p-8 text-center">
+              <div className="bg-purple-600/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-purple-500/50 shadow-lg shadow-purple-900/30">
+                <i className="fa-solid fa-rocket text-4xl text-purple-400 animate-pulse"></i>
+              </div>
+              <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                New Version Available!
+              </h3>
+              <p className="text-slate-300 mb-6 leading-relaxed">
+                A new version of <span className="font-bold text-purple-400">Media-Pull DL</span> is ready to download.
+              </p>
+
+              <div className="bg-slate-950/50 rounded-xl p-4 mb-6 border border-slate-700">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">Current Version</span>
+                  <span className="text-sm font-mono text-slate-400">{appUpdateInfo.current}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-purple-400 uppercase tracking-wider font-bold">Latest Version</span>
+                  <span className="text-sm font-mono text-purple-400 font-bold">{appUpdateInfo.latest}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowAppUpdateModal(false);
+                  }}
+                  className="flex-1 px-6 py-3 rounded-xl font-bold bg-slate-700 hover:bg-slate-600 transition-all text-slate-300"
+                >
+                  <i className="fa-solid fa-clock mr-2"></i>
+                  Later
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAppUpdateModal(false);
+                    if (typeof (window as any).openExternal === 'function') {
+                      (window as any).openExternal(appUpdateInfo.url);
+                    } else {
+                      window.open(appUpdateInfo.url, '_blank');
+                    }
+                  }}
+                  className="flex-1 px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-900/40 active:scale-95"
+                >
+                  <i className="fa-brands fa-github mr-2"></i>
+                  Download Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showUpdateModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
