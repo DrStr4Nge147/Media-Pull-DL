@@ -4,6 +4,10 @@ contextBridge.exposeInMainWorld('openDownloadFolder', async (destination) => {
   return ipcRenderer.invoke('open-download-folder', destination);
 });
 
+contextBridge.exposeInMainWorld('openAndSelectFile', async (destination, filename) => {
+  return ipcRenderer.invoke('open-and-select-file', { destination, filename });
+});
+
 contextBridge.exposeInMainWorld('openExternal', async (url) => {
   return ipcRenderer.invoke('open-external', url);
 });

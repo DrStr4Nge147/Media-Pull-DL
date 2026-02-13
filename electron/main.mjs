@@ -66,6 +66,30 @@ ipcMain.handle('open-download-folder', async (_event, destination) => {
   return true;
 });
 
+ipcMain.handle('open-and-select-file', async (_event, { destination, filename }) => {
+  const targetDir = resolveDestination(destination);
+
+  try {
+    const files = await fs.readdir(targetDir);
+    // Try to find a file that matches the filename or starts with it (ignoring extension)
+    // Filename in history might be sanitized
+    const baseName = filename.replace(/\.[^/.]+$/, ""); // remove extension if exists
+
+    const matchedFile = files.find(f => f === filename || f.startsWith(baseName));
+
+    if (matchedFile) {
+      shell.showItemInFolder(path.join(targetDir, matchedFile));
+      return true;
+    }
+  } catch (e) {
+    console.error('Error selecting file:', e);
+  }
+
+  // Fallback to just opening the folder
+  await shell.openPath(targetDir);
+  return true;
+});
+
 ipcMain.handle('open-external', async (_event, url) => {
   await shell.openExternal(url);
   return true;

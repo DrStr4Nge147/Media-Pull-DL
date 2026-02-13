@@ -90,7 +90,7 @@ const HistoryPage: React.FC<Props> = ({ history, onClear, onRemove }) => {
 
                                 <div className="flex sm:flex-col items-center gap-2 w-full sm:w-auto shrink-0 transition-all">
                                     <button
-                                        onClick={() => (window as any).openExternal(`file://${item.destination}`)}
+                                        onClick={() => (window as any).openAndSelectFile(item.destination, item.filename)}
                                         className="flex-1 sm:flex-none p-3 rounded-2xl bg-slate-700/50 hover:bg-slate-600 text-slate-300 transition-colors flex items-center justify-center gap-2 sm:aspect-square"
                                         title="Open Folder"
                                     >
