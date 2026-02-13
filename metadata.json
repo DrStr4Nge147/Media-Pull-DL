@@ -1,0 +1,5 @@
+{
+  "name": "YT-DLP Web Manager",
+  "description": "A modern, professional batch download manager for yt-dlp workflows featuring sequential queueing, custom presets, and real-time progress simulation.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,256 @@
+import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import path from 'node:path';
+import { app } from 'electron';
+import { pipeline } from 'node:stream/promises';
+
+const isDev = !app.isPackaged;
+
+const getExecutablePath = async () => {
+  const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+  if (isDev) {
+    const localPath = path.join(app.getAppPath(), 'bin', binaryName);
+    try {
+      await fs.access(localPath);
+      return localPath;
+    } catch {
+      return 'yt-dlp';
+    }
+  }
+  return path.join(process.resourcesPath, binaryName);
+};
+
+export const bootstrapYtDlp = async (onLog) => {
+  const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
+  const binDir = isDev ? path.join(app.getAppPath(), 'bin') : process.resourcesPath;
+  const targetPath = path.join(binDir, binaryName);
+
+  try {
+    await fs.access(targetPath);
+    onLog(`[bootstrap] yt-dlp already exists at ${targetPath}`);
+    return true;
+  } catch {
+    onLog('[bootstrap] yt-dlp missing. Starting automatic download...');
+    try {
+      await fs.mkdir(binDir, { recursive: true });
+      const url = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${binaryName}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to download: ${response.statusText}`);
+
+      const fileStream = createWriteStream(targetPath);
+      await pipeline(response.body, fileStream);
+
+      if (process.platform !== 'win32') {
+        await fs.chmod(targetPath, 0o755);
+      }
+      onLog('[bootstrap] yt-dlp downloaded successfully.');
+      return true;
+    } catch (error) {
+      onLog(`[bootstrap] Error downloading yt-dlp: ${error.message}`);
+      return false;
+    }
+  }
+};
+
+const resolveDestination = (destination) => {
+  if (!destination || typeof destination !== 'string') {
+    return app.getPath('downloads');
+  }
+  if (path.isAbsolute(destination)) return destination;
+  const base = app.getPath('downloads');
+  return path.resolve(base, destination);
+};
+
+export const getYtDlpVersion = async () => {
+  const ytDlpExecutable = await getExecutablePath();
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(ytDlpExecutable, ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '';
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(output.trim());
+      } else {
+        reject(new Error(`yt-dlp --version exited with code ${code}`));
+      }
+    });
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
+};
+
+export const updateYtDlp = async (onLog) => {
+  const ytDlpExecutable = await getExecutablePath();
+  const args = ['--update'];
+
+  return new Promise((resolve, reject) => {
+    onLog(`[yt-dlp] Updating: ${ytDlpExecutable} ${args.join(' ')}`);
+    const child = spawn(ytDlpExecutable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    child.stdout.on('data', (data) => {
+      onLog(`[yt-dlp] ${data.toString().trim()}`);
+    });
+
+    child.stderr.on('data', (data) => {
+      onLog(`[yt-dlp] Error: ${data.toString().trim()}`);
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        onLog('[yt-dlp] Update successful.');
+        resolve(true);
+      } else {
+        onLog(`[yt-dlp] Update failed with code ${code}`);
+        reject(new Error(`Update failed with code ${code}`));
+      }
+    });
+
+    child.on('error', (err) => {
+      onLog(`[yt-dlp] Failed to start update: ${err.message}`);
+      reject(err);
+    });
+  });
+};
+
+export const getVideoMetadata = async (url) => {
+  const ytDlpExecutable = await getExecutablePath();
+  const args = ['--dump-json', '--no-playlist', url];
+
+  // Try to avoid JS runtime warning if node is available
+  if (process.env.PATH?.includes('node') || process.env.PATH?.includes('Node')) {
+    args.push('--js-runtime', 'node');
+  }
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(ytDlpExecutable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '';
+    let errorOutput = '';
+
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        try {
+          const json = JSON.parse(output);
+          resolve(json);
+        } catch (e) {
+          reject(new Error('Failed to parse yt-dlp output'));
+        }
+      } else {
+        reject(new Error(errorOutput || `yt-dlp exited with code ${code}`));
+      }
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
+};
+
+export const runYtDlp = async ({ url, referer, destination, filename, format, resolution, extraArgs }, onProgress, onLog, onCreated) => {
+  const resolvedDest = resolveDestination(destination);
+  await fs.mkdir(resolvedDest, { recursive: true });
+
+  // If filename doesn't have a template/extension, append %(ext)s
+  const finalFilename = filename.includes('%(') || filename.includes('.') ? filename : `${filename}.%(ext)s`;
+  const outputPathTemplate = path.join(resolvedDest, finalFilename);
+
+  const args = [
+    url,
+    '--output', outputPathTemplate,
+    '--newline',
+  ];
+
+  if (process.env.PATH?.includes('node') || process.env.PATH?.includes('Node')) {
+    args.push('--js-runtime', 'node');
+  }
+
+  if (format === 'mp3') {
+    args.push('--extract-audio', '--audio-format', 'mp3');
+  } else if (format && format !== 'best') {
+    // If specific format is requested, try to get that extension
+    args.push('-f', `bestvideo[ext=${format}]+bestaudio[ext=m4a]/best[ext=${format}]/best`);
+  }
+
+  if (resolution && resolution !== 'best') {
+    const resValue = resolution.replace('p', '');
+    args.push('-S', `res:${resValue}`);
+  }
+
+  if (referer) {
+    args.push('--add-header', `Referer:${referer}`);
+  }
+
+  if (extraArgs) {
+    // Split by spaces but respect quoted sections
+    const extraParts = extraArgs.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
+    args.push(...extraParts);
+  }
+
+  const ytDlpExecutable = await getExecutablePath();
+
+  return new Promise((resolve, reject) => {
+    onLog(`[yt-dlp] Starting: ${ytDlpExecutable} ${args.join(' ')}`);
+
+    const child = spawn(ytDlpExecutable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    if (onCreated) onCreated(child);
+
+    let lastProgress = null;
+
+    child.stdout.on('data', (data) => {
+      const lines = data.toString().split('\n');
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        onLog(`[yt-dlp] ${line}`);
+
+        // Progress parsing (yt-dlp formats vary, can include "~" and "(frag x/y)")
+        if (line.includes('[download]')) {
+          const percentMatch = line.match(/\[download\][^\d]*([\d.]+)%/);
+          if (percentMatch) {
+            const percent = parseFloat(percentMatch[1]);
+            if (!Number.isNaN(percent)) {
+              onProgress(Math.min(percent, 100));
+              lastProgress = percent;
+            }
+          }
+        }
+      }
+    });
+
+    child.stderr.on('data', (data) => {
+      const lines = data.toString().split('\n');
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        onLog(`[yt-dlp] ${line}`);
+      }
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        onProgress(100);
+        onLog('[yt-dlp] Download finished successfully.');
+        resolve(child);
+      } else {
+        onLog(`[yt-dlp] Process exited with code ${code}`);
+        reject(new Error(`yt-dlp exited with code ${code}`));
+      }
+    });
+
+    child.on('error', (err) => {
+      onLog(`[yt-dlp] Failed to start yt-dlp: ${err.message}`);
+      reject(err);
+    });
+  });
+};
