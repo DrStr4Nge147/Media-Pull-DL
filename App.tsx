@@ -252,10 +252,20 @@ const App: React.FC = () => {
         await realYtDlpDownload(item);
         updateItemStatus(item.id, DownloadStatus.COMPLETED);
         setHistory(prev => [{ ...item, status: DownloadStatus.COMPLETED, timestamp: Date.now() }, ...prev]);
+        // Send notification
+        const w = window as any;
+        if (typeof w.sendNotification === 'function') {
+          w.sendNotification('Download Complete', `Successfully downloaded: ${item.filename}`);
+        }
       } catch (e) {
         updateItemLogsSmart(item.id, `[Error] ${e instanceof Error ? e.message : String(e)}`);
         updateItemStatus(item.id, DownloadStatus.FAILED);
         setHistory(prev => [{ ...item, status: DownloadStatus.FAILED, timestamp: Date.now() }, ...prev]);
+        // Send notification
+        const w = window as any;
+        if (typeof w.sendNotification === 'function') {
+          w.sendNotification('Download Failed', `Failed to download: ${item.filename}`);
+        }
       }
     });
 
@@ -298,6 +308,11 @@ const App: React.FC = () => {
         updateItemStatus(item.id, DownloadStatus.COMPLETED);
         // Add to history
         setHistory(prev => [{ ...item, status: DownloadStatus.COMPLETED, timestamp: Date.now() }, ...prev]);
+        // Send notification
+        const w = window as any;
+        if (typeof w.sendNotification === 'function') {
+          w.sendNotification('Download Complete', `Successfully downloaded: ${item.filename}`);
+        }
         // Continue to next item
         processNext(index + 1);
       } catch (e) {
@@ -305,6 +320,11 @@ const App: React.FC = () => {
         updateItemStatus(item.id, DownloadStatus.FAILED);
         // Add to history even on failure
         setHistory(prev => [{ ...item, status: DownloadStatus.FAILED, timestamp: Date.now() }, ...prev]);
+        // Send notification
+        const w = window as any;
+        if (typeof w.sendNotification === 'function') {
+          w.sendNotification('Download Failed', `Failed to download: ${item.filename}`);
+        }
         // Continue to next item on failure
         processNext(index + 1);
       }

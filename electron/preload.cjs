@@ -93,6 +93,11 @@ contextBridge.exposeInMainWorld('onAppUpToDate', (callback) => {
   ipcRenderer.on('app-up-to-date', (_, version) => callback(version));
 });
 
+
+contextBridge.exposeInMainWorld('sendNotification', (title, body) => {
+  return ipcRenderer.invoke('send-notification', { title, body });
+});
+
 contextBridge.exposeInMainWorld('getAppVersion', () => {
   return ipcRenderer.invoke('get-app-version');
 });

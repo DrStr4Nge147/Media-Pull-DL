@@ -7,6 +7,11 @@ import { runYtDlp, getYtDlpVersion, updateYtDlp, getVideoMetadata, getPlaylistMe
 
 const isDev = !app.isPackaged;
 
+// Set app name for Windows notifications
+if (process.platform === 'win32') {
+  app.setAppUserModelId('Media-Pull DL');
+}
+
 const activeDownloads = new Map(); // id => child process
 
 const __filename = fileURLToPath(import.meta.url);
@@ -92,6 +97,19 @@ ipcMain.handle('open-and-select-file', async (_event, { destination, filename })
 
 ipcMain.handle('open-external', async (_event, url) => {
   await shell.openExternal(url);
+  return true;
+});
+
+ipcMain.handle('send-notification', async (_event, { title, body }) => {
+  const { Notification } = await import('electron');
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title,
+      body,
+      icon: path.join(__dirname, '..', 'public', 'logo.png'),
+    });
+    notification.show();
+  }
   return true;
 });
 
