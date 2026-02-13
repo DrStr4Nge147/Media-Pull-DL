@@ -28,8 +28,8 @@ Media-Pull DL provides a premium, intuitive interface for downloading media from
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/yourusername/mediapull-dl.git
-    cd mediapull-dl
+    git clone https://github.com/DrStr4Nge147/Media-Pull-DL.git
+    cd Media-Pull-DL
     ```
 
 2.  **Install dependencies**:
