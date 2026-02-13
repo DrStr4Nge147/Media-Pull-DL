@@ -43,6 +43,7 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
+  const [appUpdateInfo, setAppUpdateInfo] = useState<{ current: string; latest: string; url: string } | null>(null);
 
   // Update detection
   useEffect(() => {
@@ -56,6 +57,10 @@ const App: React.FC = () => {
       w.getAppVersion().then((v: string) => {
         setAppVersion(v);
         document.title = `Media-Pull DL v${v}`;
+        // Trigger manual check after version is loaded
+        if (typeof w.checkAppUpdate === 'function') {
+          w.checkAppUpdate();
+        }
       });
     }
 
@@ -101,6 +106,12 @@ const App: React.FC = () => {
           }
           return { ...item, logs: [...item.logs, data.log] };
         }));
+      });
+    }
+
+    if (typeof w.onAppUpdateAvailable === 'function') {
+      w.onAppUpdateAvailable((data: { current: string; latest: string; url: string }) => {
+        setAppUpdateInfo(data);
       });
     }
 
@@ -274,7 +285,9 @@ const App: React.FC = () => {
       }
 
       setCurrentIndex(index);
-      setSelectedItemId(item.id);
+      if (viewMode === 'SINGLE') {
+        setSelectedItemId(item.id);
+      }
       updateItemStatus(item.id, DownloadStatus.DOWNLOADING);
 
       // Real yt-dlp execution
@@ -464,6 +477,28 @@ const App: React.FC = () => {
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     v{currentVersion}
                   </span>
+
+                  {appUpdateInfo && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Open release URL
+                        if (typeof (window as any).openExternal === 'function') {
+                          (window as any).openExternal(appUpdateInfo.url);
+                        } else {
+                          window.open(appUpdateInfo.url, '_blank');
+                        }
+                      }}
+                      className="group/app-update relative text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-purple-500/30 bg-purple-500/20 text-purple-400 shadow-sm font-bold flex items-center gap-1.5 hover:bg-purple-500/30 hover:border-purple-500/50 transition-all animate-pulse-slow ml-2"
+                    >
+                      <i className="fa-brands fa-github"></i>
+                      App Update
+                      {/* Tooltip */}
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-slate-800 text-slate-200 text-[10px] rounded opacity-0 group-hover/app-update:opacity-100 transition-opacity pointer-events-none whitespace-nowrap border border-slate-700 shadow-2xl z-50">
+                        Get <span className="font-mono text-purple-400">{appUpdateInfo.latest}</span>
+                      </span>
+                    </button>
+                  )}
 
                   {updateInfo && (
                     <button

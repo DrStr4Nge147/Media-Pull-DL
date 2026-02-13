@@ -57,6 +57,10 @@ contextBridge.exposeInMainWorld('checkYtDlpUpdate', () => {
   return ipcRenderer.invoke('check-yt-dlp-update');
 });
 
+contextBridge.exposeInMainWorld('checkAppUpdate', () => {
+  return ipcRenderer.invoke('check-app-update');
+});
+
 contextBridge.exposeInMainWorld('updateYtDlp', () => {
   return ipcRenderer.invoke('update-yt-dlp');
 });
@@ -77,6 +81,16 @@ contextBridge.exposeInMainWorld('removeUpdateListeners', () => {
   ipcRenderer.removeAllListeners('yt-dlp-update-available');
   ipcRenderer.removeAllListeners('yt-dlp-up-to-date');
   ipcRenderer.removeAllListeners('yt-dlp-update-log');
+  ipcRenderer.removeAllListeners('app-update-available');
+  ipcRenderer.removeAllListeners('app-up-to-date');
+});
+
+contextBridge.exposeInMainWorld('onAppUpdateAvailable', (callback) => {
+  ipcRenderer.on('app-update-available', (_, data) => callback(data));
+});
+
+contextBridge.exposeInMainWorld('onAppUpToDate', (callback) => {
+  ipcRenderer.on('app-up-to-date', (_, version) => callback(version));
 });
 
 contextBridge.exposeInMainWorld('getAppVersion', () => {

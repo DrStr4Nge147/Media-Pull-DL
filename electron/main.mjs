@@ -185,6 +185,38 @@ const checkForUpdates = async (win) => {
   }
 };
 
+const checkForAppUpdates = async (win) => {
+  try {
+    const currentVersion = appVersion; // Already defined at the top
+    const response = await fetch('https://api.github.com/repos/DrStr4Nge147/Media-Pull-DL/releases/latest');
+
+    if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
+
+    const data = await response.json();
+    let latestVersion = data.tag_name;
+
+    // Remove 'v' or 'V' prefix if present for comparison (case insensitive)
+    const cleanLatest = latestVersion.replace(/^v/i, '');
+    const cleanCurrent = currentVersion.replace(/^v/i, '');
+
+    if (cleanCurrent !== cleanLatest) {
+      // Send log to renderer for debugging
+      console.log(`[App Update] Update available: ${cleanCurrent} -> ${cleanLatest}`);
+
+      win.webContents.send('app-update-available', {
+        current: currentVersion,
+        latest: latestVersion,
+        url: data.html_url
+      });
+    } else {
+      console.log(`[App Update] App is up to date: ${cleanCurrent}`);
+      win.webContents.send('app-up-to-date', currentVersion);
+    }
+  } catch (error) {
+    console.error('Failed to check for App updates:', error);
+  }
+};
+
 ipcMain.handle('get-video-metadata', async (_event, url) => {
   try {
     return await getVideoMetadata(url);
@@ -208,6 +240,11 @@ ipcMain.handle('get-yt-dlp-version', async () => {
 ipcMain.handle('check-yt-dlp-update', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   return checkForUpdates(win);
+});
+
+ipcMain.handle('check-app-update', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  return checkForAppUpdates(win);
 });
 
 ipcMain.handle('update-yt-dlp', async (event) => {
@@ -235,6 +272,7 @@ app.whenReady().then(async () => {
     // Wait for content to load before sending update notification
     win.webContents.once('did-finish-load', () => {
       checkForUpdates(win);
+      setTimeout(() => checkForAppUpdates(win), 2000); // Check for app updates slightly after yt-dlp check
     });
   }
 
