@@ -70,3 +70,7 @@ contextBridge.exposeInMainWorld('removeUpdateListeners', () => {
   ipcRenderer.removeAllListeners('yt-dlp-up-to-date');
   ipcRenderer.removeAllListeners('yt-dlp-update-log');
 });
+
+contextBridge.exposeInMainWorld('getAppVersion', () => {
+  return ipcRenderer.invoke('get-app-version');
+});

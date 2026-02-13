@@ -41,6 +41,7 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('yt_dlp_history');
     return saved ? JSON.parse(saved) : [];
   });
+  const [appVersion, setAppVersion] = useState<string>('0.0.0');
 
   // Update detection
   useEffect(() => {
@@ -49,6 +50,12 @@ const App: React.FC = () => {
     // Initial version fetch
     if (typeof w.getYtDlpVersion === 'function') {
       w.getYtDlpVersion().then((v: string) => setCurrentVersion(v)).catch(() => { });
+    }
+    if (typeof w.getAppVersion === 'function') {
+      w.getAppVersion().then((v: string) => {
+        setAppVersion(v);
+        document.title = `Media-Pull DL v${v}`;
+      });
     }
 
     if (typeof w.onYtDlpUpdateAvailable === 'function') {

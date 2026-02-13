@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { runYtDlp, getYtDlpVersion, updateYtDlp, getVideoMetadata, bootstrapYtDlp } from './yt-dlp-runner.mjs';
 
@@ -10,6 +11,9 @@ const activeDownloads = new Map(); // id => child process
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const packageJson = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+const appVersion = packageJson.version;
 
 const getDevServerUrl = () => {
   return process.env.VITE_DEV_SERVER_URL || 'http://localhost:3000';
@@ -34,6 +38,7 @@ const createWindow = async () => {
     minHeight: 650,
     backgroundColor: '#0f172a',
     autoHideMenuBar: true,
+    title: `Media-Pull DL v${appVersion}`,
     icon: path.join(__dirname, '..', 'public', 'logo.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -182,6 +187,10 @@ ipcMain.handle('update-yt-dlp', async (event) => {
   } catch (error) {
     return { success: false, error: error.message };
   }
+});
+
+ipcMain.handle('get-app-version', () => {
+  return appVersion;
 });
 
 app.whenReady().then(async () => {
