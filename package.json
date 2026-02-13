@@ -1,7 +1,7 @@
 {
   "name": "mediapull-dl",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "main": "electron/main.mjs",
   "description": "A powerful yt-dlp based media downloader",
   "author": "MediaPull",
