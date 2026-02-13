@@ -263,8 +263,9 @@ ipcMain.handle('get-app-version', () => {
 });
 
 app.whenReady().then(async () => {
-  // Bootstrap yt-dlp in the background
-  bootstrapYtDlp((log) => console.log(log)).catch(console.error);
+  // Bootstrap yt-dlp and ffmpeg in the background
+  console.log('[System] Bootstrapping dependencies...');
+  await bootstrapYtDlp((log) => console.log(log)).catch(console.error);
 
   await createWindow();
   const [win] = BrowserWindow.getAllWindows();

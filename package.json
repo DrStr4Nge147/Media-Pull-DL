@@ -37,7 +37,9 @@
         "from": "bin",
         "to": ".",
         "filter": [
-          "yt-dlp.exe"
+          "yt-dlp.exe",
+          "ffmpeg.exe",
+          "ffprobe.exe"
         ]
       }
     ]

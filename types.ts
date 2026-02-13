@@ -20,6 +20,8 @@ export interface DownloadItem {
   progress: number;
   logs: string[];
   error?: string;
+  sponsorBlock?: boolean;
+  sponsorBlockCategories?: string[];
   timestamp: number;
 }
 

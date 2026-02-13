@@ -29,6 +29,20 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
   const [selectedPlaylistItems, setSelectedPlaylistItems] = useState<Set<string>>(new Set());
   const [availableResolutions, setAvailableResolutions] = useState<string[]>(['best', '2160p', '1440p', '1080p', '720p', '480p', '360p']);
   const [availableFormats, setAvailableFormats] = useState<string[]>(['mp4', 'mkv', 'webm', 'mp3', 'm4a']);
+  const [sponsorBlock, setSponsorBlock] = useState(false);
+  const [sponsorBlockCategories, setSponsorBlockCategories] = useState<string[]>(['music_offtopic']);
+
+  const SPONSORBLOCK_CATEGORIES = [
+    { id: 'music_offtopic', label: 'Non-music and off-topic portions' },
+    { id: 'sponsor', label: 'Sponsors' },
+    { id: 'intro', label: 'Intro' },
+    { id: 'outro', label: 'Outro' },
+    { id: 'selfpromo', label: 'Self promos' },
+    { id: 'preview', label: 'Previews' },
+    { id: 'filler', label: 'Fillers' },
+    { id: 'interaction', label: 'Subscription reminders' },
+    { id: 'poi_highlight', label: 'Hook' },
+  ];
 
   useEffect(() => {
     if (!url.trim() || !url.startsWith('http')) {
@@ -111,6 +125,8 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
         format,
         resolution,
         extraArgs: showAdvanced ? extraArgs.trim() : '',
+        sponsorBlock,
+        sponsorBlockCategories: sponsorBlock ? sponsorBlockCategories : [],
       }));
       onAddMultiple(items);
     } else {
@@ -122,6 +138,8 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
         format,
         resolution,
         extraArgs: showAdvanced ? extraArgs.trim() : '',
+        sponsorBlock,
+        sponsorBlockCategories: sponsorBlock ? sponsorBlockCategories : [],
       });
     }
 
@@ -134,7 +152,10 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
     setUrl('');
     setReferer('');
     setFilename('');
+    setFilename('');
     setExtraArgs('');
+    setSponsorBlock(false);
+    setSponsorBlockCategories(['music_offtopic']);
     setMetadata(null);
     setPlaylistData(null);
     setFetchingMetadata(false);
@@ -371,6 +392,43 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
             </div>
           </div>
         )}
+
+        <div className="mt-4 border-t border-slate-800 pt-4">
+          <div className="flex items-center gap-3 mb-3">
+            <button
+              type="button"
+              onClick={() => setSponsorBlock(!sponsorBlock)}
+              className={`w-10 h-5 rounded-full relative transition-colors ${sponsorBlock ? 'bg-green-500' : 'bg-slate-700'}`}
+            >
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${sponsorBlock ? 'left-6' : 'left-1'}`}></div>
+            </button>
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider cursor-pointer select-none" onClick={() => setSponsorBlock(!sponsorBlock)}>
+              Enable SponsorBlock
+            </label>
+          </div>
+
+          {sponsorBlock && (
+            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 animate-fadeIn grid grid-cols-2 gap-2">
+              {SPONSORBLOCK_CATEGORIES.map(cat => (
+                <label key={cat.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-800/50 p-1.5 rounded-lg transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={sponsorBlockCategories.includes(cat.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSponsorBlockCategories([...sponsorBlockCategories, cat.id]);
+                      } else {
+                        setSponsorBlockCategories(sponsorBlockCategories.filter(c => c !== cat.id));
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900 cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-300">{cat.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="pt-2">

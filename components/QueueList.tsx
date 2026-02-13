@@ -69,6 +69,12 @@ const QueueList: React.FC<Props> = ({
                       {item.resolution}
                     </span>
                   )}
+                  {item.sponsorBlock && (
+                    <span className="flex items-center gap-1 bg-green-900/30 text-green-400 px-1.5 rounded ring-1 ring-green-800/50" title={`SponsorBlock: ${item.sponsorBlockCategories?.join(', ')}`}>
+                      <i className="fa-solid fa-shield-halved"></i>
+                      SB
+                    </span>
+                  )}
                 </div>
               </div>
 

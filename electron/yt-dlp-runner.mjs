@@ -21,35 +21,87 @@ const getExecutablePath = async () => {
   return path.join(process.resourcesPath, binaryName);
 };
 
+const getBinDir = () => {
+  return isDev ? path.join(app.getAppPath(), 'bin') : process.resourcesPath;
+};
+
 export const bootstrapYtDlp = async (onLog) => {
   const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
-  const binDir = isDev ? path.join(app.getAppPath(), 'bin') : process.resourcesPath;
+  const binDir = getBinDir();
   const targetPath = path.join(binDir, binaryName);
+  const ffmpegPath = path.join(binDir, process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
 
   try {
-    await fs.access(targetPath);
-    onLog(`[bootstrap] yt-dlp already exists at ${targetPath}`);
-    return true;
-  } catch {
-    onLog('[bootstrap] yt-dlp missing. Starting automatic download...');
+    await fs.mkdir(binDir, { recursive: true });
+
+    // 1. Check/Download yt-dlp
     try {
-      await fs.mkdir(binDir, { recursive: true });
-      const url = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${binaryName}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Failed to download: ${response.statusText}`);
+      await fs.access(targetPath);
+      onLog(`[bootstrap] yt-dlp already exists at ${targetPath}`);
+    } catch {
+      onLog('[bootstrap] yt-dlp missing. Starting automatic download...');
+      try {
+        const url = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${binaryName}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to download yt-dlp: ${response.statusText}`);
 
-      const fileStream = createWriteStream(targetPath);
-      await pipeline(response.body, fileStream);
+        const fileStream = createWriteStream(targetPath);
+        await pipeline(response.body, fileStream);
 
-      if (process.platform !== 'win32') {
-        await fs.chmod(targetPath, 0o755);
+        if (process.platform !== 'win32') {
+          await fs.chmod(targetPath, 0o755);
+        }
+        onLog('[bootstrap] yt-dlp downloaded successfully.');
+      } catch (error) {
+        onLog(`[bootstrap] Error downloading yt-dlp: ${error.message}`);
+        return false;
       }
-      onLog('[bootstrap] yt-dlp downloaded successfully.');
-      return true;
-    } catch (error) {
-      onLog(`[bootstrap] Error downloading yt-dlp: ${error.message}`);
-      return false;
     }
+
+    // 2. Check/Download FFmpeg (Windows only for now, Linux/Mac expected to have it or use package manager)
+    // Only download if missing
+    if (process.platform === 'win32') {
+      try {
+        await fs.access(ffmpegPath);
+        onLog(`[bootstrap] ffmpeg already exists at ${ffmpegPath}`);
+      } catch {
+        onLog('[bootstrap] ffmpeg missing. Starting automatic download (this may take a while)...');
+        // Use PowerShell script to download and unzip
+        const zipUrl = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip";
+        const tempZip = path.join(binDir, 'ffmpeg.zip');
+        const tempDir = path.join(binDir, 'ffmpeg-temp');
+
+        const { exec } = await import('node:child_process');
+
+        // PowerShell command to download and unzip
+        const psCommand = `
+          $ProgressPreference = 'SilentlyContinue';
+          Invoke-WebRequest -Uri "${zipUrl}" -OutFile "${tempZip}";
+          Expand-Archive -Path "${tempZip}" -DestinationPath "${tempDir}" -Force;
+          Move-Item -Path "${tempDir}\\ffmpeg-master-latest-win64-gpl\\bin\\ffmpeg.exe" -Destination "${binDir}";
+          Move-Item -Path "${tempDir}\\ffmpeg-master-latest-win64-gpl\\bin\\ffprobe.exe" -Destination "${binDir}";
+          Remove-Item -Path "${tempZip}" -Force;
+          Remove-Item -Path "${tempDir}" -Recurse -Force;
+        `;
+
+        await new Promise((resolve, reject) => {
+          exec(`powershell -NoProfile -Command "${psCommand.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+            if (error) {
+              reject(new Error(`FFmpeg download failed: ${stderr || error.message}`));
+            } else {
+              resolve();
+            }
+          });
+        });
+
+        onLog('[bootstrap] ffmpeg downloaded and installed successfully.');
+      }
+    }
+
+    return true;
+  } catch (error) {
+    onLog(`[bootstrap] Critical error: ${error.message}`);
+    return false;
   }
 };
 
@@ -198,7 +250,7 @@ export const getPlaylistMetadata = async (url) => {
   });
 };
 
-export const runYtDlp = async ({ url, referer, destination, filename, format, resolution, extraArgs }, onProgress, onLog, onCreated) => {
+export const runYtDlp = async ({ url, referer, destination, filename, format, resolution, extraArgs, sponsorBlock, sponsorBlockCategories }, onProgress, onLog, onCreated) => {
   const resolvedDest = resolveDestination(destination);
   await fs.mkdir(resolvedDest, { recursive: true });
 
@@ -239,6 +291,13 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
     // Split by spaces but respect quoted sections
     const extraParts = extraArgs.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [];
     args.push(...extraParts);
+  }
+
+  if (sponsorBlock && sponsorBlockCategories && sponsorBlockCategories.length > 0) {
+    const categoriesToRemove = sponsorBlockCategories.filter(c => c !== 'poi_highlight');
+    if (categoriesToRemove.length > 0) {
+      args.push('--sponsorblock-remove', categoriesToRemove.join(','));
+    }
   }
 
   const ytDlpExecutable = await getExecutablePath();
