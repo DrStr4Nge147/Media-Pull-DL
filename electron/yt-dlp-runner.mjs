@@ -200,7 +200,25 @@ export const getVideoMetadata = async (url) => {
           reject(new Error('Failed to parse yt-dlp output'));
         }
       } else {
-        reject(new Error(errorOutput || `yt-dlp exited with code ${code}`));
+        // Provide more specific error messages based on error output
+        const errorLower = errorOutput.toLowerCase();
+
+        if (errorLower.includes('unsupported url') || errorLower.includes('no suitable extractor')) {
+          reject(new Error('Unsupported URL: This site is not supported by yt-dlp'));
+        } else if (errorLower.includes('video unavailable') || errorLower.includes('this video is unavailable')) {
+          reject(new Error('Video unavailable: This video cannot be accessed'));
+        } else if (errorLower.includes('private video') || errorLower.includes('members-only')) {
+          reject(new Error('Private video: This video is private or members-only'));
+        } else if (errorLower.includes('http error') || errorLower.includes('unable to download')) {
+          reject(new Error('Network error: Unable to fetch video information'));
+        } else if (errorLower.includes('sign in') || errorLower.includes('login required')) {
+          reject(new Error('Authentication required: This video requires login'));
+        } else if (errorOutput.trim()) {
+          // Return the actual error message if it's informative
+          reject(new Error(errorOutput.split('\n')[0] || `yt-dlp exited with code ${code}`));
+        } else {
+          reject(new Error(`yt-dlp exited with code ${code}`));
+        }
       }
     });
 
@@ -240,7 +258,20 @@ export const getPlaylistMetadata = async (url) => {
           reject(new Error('Failed to parse yt-dlp output'));
         }
       } else {
-        reject(new Error(errorOutput || `yt-dlp exited with code ${code}`));
+        // Provide more specific error messages based on error output
+        const errorLower = errorOutput.toLowerCase();
+
+        if (errorLower.includes('unsupported url') || errorLower.includes('no suitable extractor')) {
+          reject(new Error('Unsupported URL: This playlist site is not supported'));
+        } else if (errorLower.includes('playlist unavailable') || errorLower.includes('playlist does not exist')) {
+          reject(new Error('Playlist unavailable: This playlist cannot be accessed'));
+        } else if (errorLower.includes('private') || errorLower.includes('members-only')) {
+          reject(new Error('Private playlist: This playlist is private or members-only'));
+        } else if (errorOutput.trim()) {
+          reject(new Error(errorOutput.split('\n')[0] || `yt-dlp exited with code ${code}`));
+        } else {
+          reject(new Error(`yt-dlp exited with code ${code}`));
+        }
       }
     });
 

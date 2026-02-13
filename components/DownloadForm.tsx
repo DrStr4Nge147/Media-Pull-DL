@@ -25,6 +25,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
   const [fetchingPlaylist, setFetchingPlaylist] = useState(false);
   const [metadata, setMetadata] = useState<any>(null);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
   const [playlistData, setPlaylistData] = useState<any>(null);
   const [selectedPlaylistItems, setSelectedPlaylistItems] = useState<Set<string>>(new Set());
   const [availableResolutions, setAvailableResolutions] = useState<string[]>(['best', '2160p', '1440p', '1080p', '720p', '480p', '360p']);
@@ -47,6 +48,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
   useEffect(() => {
     if (!url.trim() || !url.startsWith('http')) {
       setMetadata(null);
+      setMetadataError(null);
       return;
     }
 
@@ -75,6 +77,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
       }
 
       setFetchingMetadata(true);
+      setMetadataError(null);
       try {
         const data = await (window as any).getVideoMetadata(url);
         setMetadata(data);
@@ -103,6 +106,19 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
         }
       } catch (e) {
         console.error('Metadata fetch failed:', e);
+        const errorMessage = e instanceof Error ? e.message : String(e);
+
+        // Provide user-friendly error messages
+        if (errorMessage.includes('Unsupported URL') || errorMessage.includes('not supported')) {
+          setMetadataError('This site is not supported for media extraction. You can still try downloading, but format/resolution detection is unavailable.');
+        } else if (errorMessage.includes('HTTP Error') || errorMessage.includes('network')) {
+          setMetadataError('Network error: Unable to fetch media information. Please check your connection.');
+        } else if (errorMessage.includes('Video unavailable') || errorMessage.includes('Private video')) {
+          setMetadataError('This video is unavailable or private. Please check the URL.');
+        } else {
+          setMetadataError('Unable to fetch media information from this URL. The site may not be supported or the URL may be invalid.');
+        }
+        setMetadata(null);
       } finally {
         setFetchingMetadata(false);
       }
@@ -157,6 +173,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
     setSponsorBlock(false);
     setSponsorBlockCategories(['music_offtopic']);
     setMetadata(null);
+    setMetadataError(null);
     setPlaylistData(null);
     setFetchingMetadata(false);
     setFetchingPlaylist(false);
@@ -278,6 +295,21 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                 </div>
               </div>
             )}
+
+            {metadataError && (
+              <div className="bg-amber-900/20 border border-amber-500/30 rounded-xl p-4 flex gap-3 animate-fadeIn">
+                <div className="flex-shrink-0">
+                  <div className="bg-amber-500/20 w-10 h-10 rounded-full flex items-center justify-center">
+                    <i className="fa-solid fa-triangle-exclamation text-amber-400 text-lg"></i>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-amber-300 mb-1">Site Not Supported</h4>
+                  <p className="text-xs text-amber-200/80 leading-relaxed">{metadataError}</p>
+                </div>
+              </div>
+            )}
+
 
             <div className="grid grid-cols-2 gap-4 animate-fadeIn">
               <div>
