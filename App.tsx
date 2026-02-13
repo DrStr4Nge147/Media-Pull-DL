@@ -198,6 +198,18 @@ const App: React.FC = () => {
     }
   };
 
+  const addMultipleToQueue = (itemsData: Omit<DownloadItem, 'id' | 'status' | 'progress' | 'logs' | 'timestamp'>[]) => {
+    const newItems: DownloadItem[] = itemsData.map(itemData => ({
+      ...itemData,
+      id: uuidv4(),
+      status: DownloadStatus.PENDING,
+      progress: 0,
+      logs: [`[System] Added to queue at ${new Date().toLocaleTimeString()}`],
+      timestamp: Date.now()
+    }));
+    setQueue(prev => [...prev, ...newItems]);
+  };
+
   const startBatchDownload = async (currentQueue: DownloadItem[]) => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -606,6 +618,7 @@ const App: React.FC = () => {
               </h3>
               <DownloadForm
                 onAdd={addToQueue}
+                onAddMultiple={addMultipleToQueue}
                 isProcessing={isProcessing}
                 mode={viewMode}
                 settings={settings}

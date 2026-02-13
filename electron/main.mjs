@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { runYtDlp, getYtDlpVersion, updateYtDlp, getVideoMetadata, bootstrapYtDlp } from './yt-dlp-runner.mjs';
+import { runYtDlp, getYtDlpVersion, updateYtDlp, getVideoMetadata, getPlaylistMetadata, bootstrapYtDlp } from './yt-dlp-runner.mjs';
 
 const isDev = !app.isPackaged;
 
@@ -164,6 +164,14 @@ const checkForUpdates = async (win) => {
 ipcMain.handle('get-video-metadata', async (_event, url) => {
   try {
     return await getVideoMetadata(url);
+  } catch (error) {
+    throw new Error(error.message);
+  }
+});
+
+ipcMain.handle('get-playlist-metadata', async (_event, url) => {
+  try {
+    return await getPlaylistMetadata(url);
   } catch (error) {
     throw new Error(error.message);
   }

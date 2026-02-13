@@ -158,6 +158,46 @@ export const getVideoMetadata = async (url) => {
   });
 };
 
+export const getPlaylistMetadata = async (url) => {
+  const ytDlpExecutable = await getExecutablePath();
+  const args = ['--dump-single-json', '--flat-playlist', '--yes-playlist', url];
+
+  if (process.env.PATH?.includes('node') || process.env.PATH?.includes('Node')) {
+    args.push('--js-runtime', 'node');
+  }
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(ytDlpExecutable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '';
+    let errorOutput = '';
+
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        try {
+          const json = JSON.parse(output);
+          resolve(json);
+        } catch (e) {
+          reject(new Error('Failed to parse yt-dlp output'));
+        }
+      } else {
+        reject(new Error(errorOutput || `yt-dlp exited with code ${code}`));
+      }
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
+};
+
 export const runYtDlp = async ({ url, referer, destination, filename, format, resolution, extraArgs }, onProgress, onLog, onCreated) => {
   const resolvedDest = resolveDestination(destination);
   await fs.mkdir(resolvedDest, { recursive: true });

@@ -4,6 +4,7 @@ import { DownloadItem, DownloadStatus, AppSettings, ViewMode } from '../types';
 
 interface Props {
   onAdd: (item: Omit<DownloadItem, 'id' | 'status' | 'progress' | 'logs' | 'timestamp'>) => void;
+  onAddMultiple: (items: Omit<DownloadItem, 'id' | 'status' | 'progress' | 'logs' | 'timestamp'>[]) => void;
   isProcessing: boolean;
   mode: ViewMode;
   settings: AppSettings;
@@ -12,7 +13,7 @@ interface Props {
   onClear?: () => void;
 }
 
-const DownloadForm: React.FC<Props> = ({ onAdd, isProcessing, mode, settings, sharedDestination, setSharedDestination, onClear }) => {
+const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mode, settings, sharedDestination, setSharedDestination, onClear }) => {
   const [url, setUrl] = useState('');
   const [referer, setReferer] = useState('');
   const [filename, setFilename] = useState('');
@@ -22,7 +23,10 @@ const DownloadForm: React.FC<Props> = ({ onAdd, isProcessing, mode, settings, sh
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
+  const [fetchingPlaylist, setFetchingPlaylist] = useState(false);
   const [metadata, setMetadata] = useState<any>(null);
+  const [playlistData, setPlaylistData] = useState<any>(null);
+  const [selectedPlaylistItems, setSelectedPlaylistItems] = useState<Set<string>>(new Set());
   const [availableResolutions, setAvailableResolutions] = useState<string[]>(['best', '2160p', '1440p', '1080p', '720p', '480p', '360p']);
   const [availableFormats, setAvailableFormats] = useState<string[]>(['mp4', 'mkv', 'webm', 'mp3', 'm4a']);
 
@@ -33,6 +37,29 @@ const DownloadForm: React.FC<Props> = ({ onAdd, isProcessing, mode, settings, sh
     }
 
     const timer = setTimeout(async () => {
+      let isPlaylistLink = false;
+      try {
+        const urlObj = new URL(url);
+        isPlaylistLink = urlObj.searchParams.has('list') || urlObj.pathname.includes('/playlist');
+      } catch {
+        isPlaylistLink = url.includes('list=');
+      }
+
+      if (isPlaylistLink && mode === 'QUEUE') {
+        setFetchingPlaylist(true);
+        try {
+          const data = await (window as any).getPlaylistMetadata(url);
+          setPlaylistData(data);
+          if (data.entries) {
+            setSelectedPlaylistItems(new Set(data.entries.filter((e: any) => e).map((e: any) => e.url || e.id)));
+          }
+        } catch (e) {
+          console.error('Playlist fetch failed:', e);
+        } finally {
+          setFetchingPlaylist(false);
+        }
+      }
+
       setFetchingMetadata(true);
       try {
         const data = await (window as any).getVideoMetadata(url);
@@ -74,15 +101,29 @@ const DownloadForm: React.FC<Props> = ({ onAdd, isProcessing, mode, settings, sh
     e.preventDefault();
     if (!url.trim()) return;
 
-    onAdd({
-      url: url.trim(),
-      referer: referer.trim(),
-      destination: sharedDestination.trim(),
-      filename: filename.trim() || settings.defaultFilenameFormat,
-      format,
-      resolution,
-      extraArgs: showAdvanced ? extraArgs.trim() : '',
-    });
+    if (playlistData && playlistData.entries && playlistData.entries.length > 0 && selectedPlaylistItems.size > 0 && mode === 'QUEUE') {
+      const selectedEntries = playlistData.entries.filter((e: any) => e && selectedPlaylistItems.has(e.url || e.id));
+      const items = selectedEntries.map((e: any) => ({
+        url: e.url || `https://www.youtube.com/watch?v=${e.id}`,
+        referer: referer.trim(),
+        destination: sharedDestination.trim(),
+        filename: e.title ? e.title.replace(/[\\/:*?"<>|]/g, '_').replace(/\.+$/, '') : settings.defaultFilenameFormat,
+        format,
+        resolution,
+        extraArgs: showAdvanced ? extraArgs.trim() : '',
+      }));
+      onAddMultiple(items);
+    } else {
+      onAdd({
+        url: url.trim(),
+        referer: referer.trim(),
+        destination: sharedDestination.trim(),
+        filename: filename.trim() || settings.defaultFilenameFormat,
+        format,
+        resolution,
+        extraArgs: showAdvanced ? extraArgs.trim() : '',
+      });
+    }
 
     if (mode === 'QUEUE' || mode === 'SINGLE') {
       clearForm();
@@ -95,7 +136,10 @@ const DownloadForm: React.FC<Props> = ({ onAdd, isProcessing, mode, settings, sh
     setFilename('');
     setExtraArgs('');
     setMetadata(null);
+    setPlaylistData(null);
     setFetchingMetadata(false);
+    setFetchingPlaylist(false);
+    setSelectedPlaylistItems(new Set());
     onClear?.();
   };
 
@@ -134,17 +178,67 @@ const DownloadForm: React.FC<Props> = ({ onAdd, isProcessing, mode, settings, sh
       </div>
 
       {
-        fetchingMetadata ? (
+        (fetchingMetadata || fetchingPlaylist) ? (
           <div className="bg-slate-900/30 border-2 border-dashed border-slate-700 p-8 rounded-2xl flex flex-col items-center justify-center animate-pulse-slow">
             <div className="bg-blue-600/20 p-4 rounded-full mb-4">
               <i className="fa-solid fa-wand-magic-sparkles text-blue-400 text-2xl animate-bounce"></i>
             </div>
-            <h4 className="text-slate-300 font-bold mb-1">Detecting Video Details...</h4>
-            <p className="text-slate-500 text-xs">Fetching available formats and resolutions</p>
+            <h4 className="text-slate-300 font-bold mb-1">
+              {fetchingPlaylist ? 'Analyzing Playlist...' : 'Analyzing Media...'}
+            </h4>
+            <p className="text-slate-500 text-xs">This may take a few seconds...</p>
           </div>
         ) : (
           <>
-            {metadata && (
+            {playlistData && playlistData.entries && playlistData.entries.length > 0 && mode === 'QUEUE' && (
+              <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl overflow-hidden animate-fadeIn mb-5">
+                <div className="bg-slate-800 p-3 border-b border-slate-700 flex justify-between items-center">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Playlist: {playlistData.title || 'Untitled'}</h4>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPlaylistItems(new Set(playlistData.entries.map((e: any) => e.url || e.id)))}
+                      className="text-[10px] text-blue-400 hover:text-blue-300 font-bold uppercase transition-colors"
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPlaylistItems(new Set())}
+                      className="text-[10px] text-slate-500 hover:text-red-400 font-bold uppercase transition-colors"
+                    >
+                      None
+                    </button>
+                  </div>
+                </div>
+                <div className="max-h-48 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                  {playlistData.entries.map((entry: any, i: number) => {
+                    if (!entry) return null;
+                    const id = entry.url || entry.id;
+                    const isSelected = selectedPlaylistItems.has(id);
+                    return (
+                      <div
+                        key={id}
+                        onClick={() => {
+                          const next = new Set(selectedPlaylistItems);
+                          if (isSelected) next.delete(id);
+                          else next.add(id);
+                          setSelectedPlaylistItems(next);
+                        }}
+                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-blue-600/20 text-blue-200' : 'hover:bg-slate-800 text-slate-400'}`}
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${isSelected ? 'bg-blue-600 border-blue-500 text-white' : 'border-slate-600'}`}>
+                          {isSelected && <i className="fa-solid fa-check"></i>}
+                        </div>
+                        <span className="text-xs truncate flex-1 pr-2">{entry.title || `Video ${i + 1}`}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {metadata && (!playlistData || !playlistData.entries || playlistData.entries.length === 0 || mode !== 'QUEUE') && (
               <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-3 flex gap-4 animate-fadeIn">
                 {metadata.thumbnail && (
                   <img src={metadata.thumbnail} alt="" className="w-24 h-16 object-cover rounded-lg shadow-lg" />
@@ -293,7 +387,8 @@ const DownloadForm: React.FC<Props> = ({ onAdd, isProcessing, mode, settings, sh
           <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
           <i className={`fa-solid ${mode === 'SINGLE' ? 'fa-download' : 'fa-plus'} relative z-10`}></i>
           <span className="relative z-10">
-            {mode === 'SINGLE' ? (isProcessing ? 'Processing...' : 'Download Now') : 'Add to Queue'}
+            {mode === 'SINGLE' ? (isProcessing ? 'Processing...' : 'Download Now') :
+              (selectedPlaylistItems.size > 0 ? `Add ${selectedPlaylistItems.size} items to Queue` : 'Add to Queue')}
           </span>
         </button>
       </div>

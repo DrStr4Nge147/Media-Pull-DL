@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('getVideoMetadata', async (url) => {
   return ipcRenderer.invoke('get-video-metadata', url);
 });
 
+contextBridge.exposeInMainWorld('getPlaylistMetadata', async (url) => {
+  return ipcRenderer.invoke('get-playlist-metadata', url);
+});
+
 contextBridge.exposeInMainWorld('pauseDownload', async (id) => {
   return ipcRenderer.invoke('pause-download', id);
 });
