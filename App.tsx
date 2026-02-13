@@ -407,58 +407,7 @@ const App: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col max-w-7xl mx-auto p-4 md:p-6 lg:p-8 overflow-hidden select-none">
-      {updateInfo && (
-        <div className="mb-6 bg-amber-500/10 border border-amber-500/50 p-4 rounded-2xl flex items-center justify-between backdrop-blur-sm animate-pulse-slow">
-          <div className="flex items-center gap-4">
-            <div className="bg-amber-500 p-2 rounded-lg shadow-lg shadow-amber-900/40">
-              <i className="fa-solid fa-cloud-arrow-down text-white"></i>
-            </div>
-            <div>
-              <p className="font-bold text-amber-200">Update Available!</p>
-              <p className="text-amber-400/80 text-sm">
-                Current: <span className="font-mono">{updateInfo.current}</span> → Latest: <span className="font-mono font-bold text-amber-300">{updateInfo.latest}</span>
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setUpdateInfo(null)}
-              className="px-4 py-2 text-amber-400/60 hover:text-amber-200 transition-colors text-sm font-medium"
-            >
-              Later
-            </button>
-            <button
-              onClick={handleUpdate}
-              disabled={isUpdating}
-              className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-6 py-2 rounded-xl font-bold shadow-lg shadow-amber-900/40 transition-all active:scale-95 disabled:opacity-50"
-            >
-              {isUpdating ? 'Updating...' : 'Update Now'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {updateSuccess && (
-        <div className="mb-6 bg-emerald-500/10 border border-emerald-500/50 p-4 rounded-2xl flex items-center justify-between backdrop-blur-sm animate-fadeIn">
-          <div className="flex items-center gap-4">
-            <div className="bg-emerald-500 p-2 rounded-lg shadow-lg shadow-emerald-900/40">
-              <i className="fa-solid fa-check text-white"></i>
-            </div>
-            <div>
-              <p className="font-bold text-emerald-200">System is Up to Date</p>
-              <p className="text-emerald-400/80 text-sm">
-                Running version: <span className="font-mono font-bold text-emerald-300">{updateSuccess}</span>
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setUpdateSuccess(null)}
-            className="w-10 h-10 rounded-full hover:bg-emerald-500/20 flex items-center justify-center text-emerald-400 transition-colors"
-          >
-            <i className="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-      )}
+      {/* Top Banners Removed */}
 
       {showUpdateModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
@@ -507,19 +456,39 @@ const App: React.FC = () => {
             className="w-12 h-12 rounded-lg shadow-lg shadow-red-900/20"
           />
           <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-              Media-Pull DL
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">Media-Pull DL</h1>
               {currentVersion ? (
-                <span className={`text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border shadow-sm font-mono font-bold flex items-center gap-1.5 ${updateInfo ? 'bg-amber-500/10 text-amber-500 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${updateInfo ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                  {updateInfo ? 'Update Available' : `v${currentVersion}`}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-500 shadow-sm font-mono font-bold flex items-center gap-1.5 transition-all">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    v{currentVersion}
+                  </span>
+
+                  {updateInfo && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUpdate();
+                      }}
+                      className="group/update relative text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-amber-500/30 bg-amber-500/20 text-amber-500 shadow-sm font-bold flex items-center gap-1.5 hover:bg-amber-500/30 hover:border-amber-500/50 transition-all animate-pulse-slow"
+                    >
+                      <i className="fa-solid fa-cloud-arrow-down"></i>
+                      New Update Available
+
+                      {/* Tooltip */}
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-slate-800 text-slate-200 text-[10px] rounded opacity-0 group-hover/update:opacity-100 transition-opacity pointer-events-none whitespace-nowrap border border-slate-700 shadow-2xl z-50">
+                        Update to <span className="font-mono text-amber-400">{updateInfo.latest}</span>
+                      </span>
+                    </button>
+                  )}
+                </div>
               ) : (
                 <span className="text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-slate-700 bg-slate-800/50 text-slate-500 font-mono font-bold animate-pulse">
                   Checking for updates...
                 </span>
               )}
-            </h1>
+            </div>
             <p className="text-slate-400 text-xs">Simplistic Media Download Manager</p>
           </div>
         </div>
@@ -738,6 +707,24 @@ const App: React.FC = () => {
       <footer className="mt-6 flex-shrink-0 text-center text-slate-500 text-[10px] uppercase tracking-widest opacity-50">
         <p>Media-Pull DL • Simplistic Media Download Manager</p>
       </footer>
+      {/* Up to date Toast */}
+      {updateSuccess && (
+        <div className="fixed bottom-8 right-8 z-[100] bg-slate-900/90 backdrop-blur-md border border-emerald-500/50 px-6 py-4 rounded-2xl shadow-2xl shadow-emerald-950/20 flex items-center gap-4 animate-slideInRight">
+          <div className="bg-emerald-500/20 w-8 h-8 rounded-full flex items-center justify-center text-emerald-500">
+            <i className="fa-solid fa-check"></i>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-100">System Up to Date</p>
+            <p className="text-[10px] text-slate-400 font-mono">Running latest v{updateSuccess}</p>
+          </div>
+          <button
+            onClick={() => setUpdateSuccess(null)}
+            className="ml-4 text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
