@@ -220,12 +220,13 @@ const checkForUpdates = async (win) => {
 const checkForAppUpdates = async (win) => {
   try {
     const currentVersion = appVersion;
-    const response = await fetch('https://api.github.com/repos/DrStr4Nge147/Media-Pull-DL/releases/latest');
+    // Use raw content to bypass API rate limits
+    const response = await fetch('https://raw.githubusercontent.com/DrStr4Nge147/Media-Pull-DL/main/version.json');
 
-    if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
+    if (!response.ok) throw new Error(`Fetch Error: ${response.statusText}`);
 
     const data = await response.json();
-    let latestVersion = data.tag_name;
+    const latestVersion = data.version;
 
     if (!currentVersion || !latestVersion) {
       console.log('[App Update] Could not determine versions, skipping check.');
@@ -245,15 +246,12 @@ const checkForAppUpdates = async (win) => {
 
       console.log(`[App Update] Update available: ${cleanCurrent} -> ${cleanLatest} (Portable: ${isPortable})`);
 
-      // Find the .exe asset
-      const exeAsset = data.assets.find(asset => asset.name.endsWith('.exe'));
-
       win.webContents.send('app-update-available', {
         current: currentVersion,
         latest: latestVersion,
-        url: data.html_url,
-        downloadUrl: exeAsset ? exeAsset.browser_download_url : null,
-        assetName: exeAsset ? exeAsset.name : null,
+        url: data.url,
+        downloadUrl: data.downloadUrl,
+        assetName: data.assetName,
         isPortable: isPortable
       });
     } else {
