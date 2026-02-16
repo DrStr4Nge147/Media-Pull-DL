@@ -24,7 +24,7 @@ const QueueList: React.FC<Props> = ({
   onSelect
 }) => {
   return (
-    <div className="h-full overflow-y-auto divide-y divide-slate-800 custom-scrollbar">
+    <div className="h-full overflow-y-auto divide-y divide-slate-200 dark:divide-slate-800 custom-scrollbar">
       {items.map((item, index) => {
         const isItemActive = item.status === DownloadStatus.DOWNLOADING || item.status === DownloadStatus.PAUSED;
         const isSelected = item.id === selectedId;
@@ -33,18 +33,18 @@ const QueueList: React.FC<Props> = ({
           <div
             key={item.id}
             onClick={() => onSelect?.(item.id)}
-            className={`p-4 cursor-pointer transition-all border-l-4 ${isSelected
-              ? 'bg-blue-900/20 border-blue-500 shadow-inner'
+            className={`p-5 cursor-pointer transition-all border-l-4 ${isSelected
+              ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-600 shadow-[inset_0_0_15px_rgba(37,99,235,0.05)]'
               : isItemActive
-                ? 'bg-slate-800/20 border-blue-500/30'
-                : 'hover:bg-slate-800/40 border-transparent'
+                ? 'bg-slate-50/50 dark:bg-slate-800/20 border-blue-500/30'
+                : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40 border-transparent'
               }`}
           >
             <div className="flex justify-between items-start mb-3">
               <div className="flex-1 min-w-0 pr-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-mono text-slate-500">{index + 1}.</span>
-                  <h4 className="font-medium text-sm truncate text-slate-200" title={item.url}>
+                  <span className="text-xs font-mono text-slate-400 dark:text-slate-500">{index + 1}.</span>
+                  <h4 className="font-medium text-sm truncate text-slate-800 dark:text-slate-200" title={item.url}>
                     {item.url}
                   </h4>
                 </div>
@@ -58,15 +58,15 @@ const QueueList: React.FC<Props> = ({
                     {item.filename}
                   </span>
                   {item.format && (
-                    <span className="flex items-center gap-1 bg-slate-800 px-1.5 rounded ring-1 ring-slate-700">
-                      <i className="fa-solid fa-clapperboard"></i>
-                      {item.format.toUpperCase()}
+                    <span className="flex items-center gap-1 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200/50 dark:border-slate-700 shadow-sm">
+                      <i className="fa-solid fa-clapperboard opacity-50"></i>
+                      <span className="font-black text-slate-700 dark:text-slate-300">{item.format.toUpperCase()}</span>
                     </span>
                   )}
                   {item.resolution && (
-                    <span className="flex items-center gap-1 bg-slate-800 px-1.5 rounded ring-1 ring-slate-700">
-                      <i className="fa-solid fa-expand"></i>
-                      {item.resolution}
+                    <span className="flex items-center gap-1 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200/50 dark:border-slate-700 shadow-sm">
+                      <i className="fa-solid fa-expand opacity-50"></i>
+                      <span className="font-black text-slate-700 dark:text-slate-300">{item.resolution}</span>
                     </span>
                   )}
                   {item.sponsorBlock && (
@@ -84,7 +84,7 @@ const QueueList: React.FC<Props> = ({
                     e.stopPropagation();
                     onSelect?.(item.id);
                   }}
-                  className={`p-1.5 rounded-lg transition-colors ${isSelected ? 'text-blue-400 bg-blue-900/40' : 'text-slate-500 hover:text-blue-400 hover:bg-slate-800'
+                  className={`p-1.5 rounded-lg transition-colors ${isSelected ? 'text-blue-500 dark:text-blue-400 bg-blue-500/10 dark:bg-blue-900/40' : 'text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   title="View Terminal Output"
                 >
@@ -135,29 +135,31 @@ const QueueList: React.FC<Props> = ({
 
             {item.status !== DownloadStatus.PENDING && (
               <div className="space-y-1">
-                <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden shadow-inner border border-slate-200/50 dark:border-slate-700/50">
                   <div
-                    className={`h-full transition-all duration-300 ${item.status === DownloadStatus.COMPLETED
-                      ? 'bg-green-500'
+                    className={`h-full transition-all duration-500 ease-out relative ${item.status === DownloadStatus.COMPLETED
+                      ? 'bg-gradient-to-r from-emerald-500 to-green-400'
                       : item.status === DownloadStatus.FAILED
-                        ? 'bg-red-500'
+                        ? 'bg-gradient-to-r from-red-600 to-red-400'
                         : item.status === DownloadStatus.PAUSED
-                          ? 'bg-yellow-500'
-                          : 'bg-blue-500'
+                          ? 'bg-gradient-to-r from-amber-500 to-yellow-400'
+                          : 'bg-gradient-to-r from-blue-600 to-indigo-500'
                       }`}
                     style={{ width: `${item.progress}%` }}
-                  ></div>
+                  >
+                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                  </div>
                 </div>
                 {item.status === DownloadStatus.DOWNLOADING && (
-                  <div className="flex justify-between text-[10px] font-mono text-blue-400">
-                    <span>PROGRESS</span>
-                    <span>{Math.round(item.progress)}%</span>
+                  <div className="flex justify-between text-[10px] font-mono text-blue-600 dark:text-blue-400 px-1">
+                    <span className="font-bold tracking-widest uppercase opacity-70">Downloading</span>
+                    <span className="font-black tracking-widest">{Math.round(item.progress)}%</span>
                   </div>
                 )}
                 {item.status === DownloadStatus.PAUSED && (
-                  <div className="flex justify-between text-[10px] font-mono text-yellow-400">
-                    <span>PAUSED</span>
-                    <span>{Math.round(item.progress)}%</span>
+                  <div className="flex justify-between text-[10px] font-mono text-amber-600 dark:text-amber-400 px-1">
+                    <span className="font-bold tracking-widest uppercase opacity-70">Paused</span>
+                    <span className="font-black tracking-widest">{Math.round(item.progress)}%</span>
                   </div>
                 )}
               </div>
@@ -171,11 +173,11 @@ const QueueList: React.FC<Props> = ({
 
 const StatusBadge: React.FC<{ status: DownloadStatus }> = ({ status }) => {
   const styles = {
-    [DownloadStatus.PENDING]: 'bg-slate-700 text-slate-400 border-slate-600',
-    [DownloadStatus.DOWNLOADING]: 'bg-blue-900/30 text-blue-400 border-blue-800/50 animate-pulse',
-    [DownloadStatus.PAUSED]: 'bg-yellow-900/30 text-yellow-400 border-yellow-800/50',
-    [DownloadStatus.COMPLETED]: 'bg-green-900/30 text-green-400 border-green-800/50',
-    [DownloadStatus.FAILED]: 'bg-red-900/30 text-red-400 border-red-800/50',
+    [DownloadStatus.PENDING]: 'bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-600',
+    [DownloadStatus.DOWNLOADING]: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/50 shadow-sm',
+    [DownloadStatus.PAUSED]: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 shadow-sm',
+    [DownloadStatus.COMPLETED]: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 shadow-sm',
+    [DownloadStatus.FAILED]: 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/50 shadow-sm',
   };
 
   return (

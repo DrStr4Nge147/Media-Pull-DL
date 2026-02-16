@@ -31,6 +31,7 @@ export interface AppSettings {
   defaultFilenameFormat: string;
   defaultArgs: string;
   presets: Preset[];
+  theme: 'light' | 'dark';
 }
 
 export interface Preset {

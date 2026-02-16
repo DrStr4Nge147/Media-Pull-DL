@@ -211,21 +211,21 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
             value={url}
             onChange={e => setUrl(e.target.value)}
             placeholder="https://www.youtube.com/watch?v=..."
-            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm pr-10"
+            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 dark:focus:border-blue-500 transition-all text-sm pr-10 text-slate-900 dark:text-white"
           />
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            <i className="fa-solid fa-link text-slate-600"></i>
+            <i className="fa-solid fa-link text-slate-400 dark:text-slate-600"></i>
           </div>
         </div>
       </div>
 
       {
         (fetchingMetadata || fetchingPlaylist) ? (
-          <div className="bg-slate-900/30 border-2 border-dashed border-slate-700 p-8 rounded-2xl flex flex-col items-center justify-center animate-pulse-slow">
-            <div className="bg-blue-600/20 p-4 rounded-full mb-4">
-              <i className="fa-solid fa-wand-magic-sparkles text-blue-400 text-2xl animate-bounce"></i>
+          <div className="bg-slate-50 dark:bg-slate-900/30 border-2 border-dashed border-slate-200 dark:border-slate-700 p-8 rounded-2xl flex flex-col items-center justify-center animate-pulse-slow">
+            <div className="bg-blue-600/10 dark:bg-blue-600/20 p-4 rounded-full mb-4">
+              <i className="fa-solid fa-wand-magic-sparkles text-blue-500 dark:text-blue-400 text-2xl animate-bounce"></i>
             </div>
-            <h4 className="text-slate-300 font-bold mb-1">
+            <h4 className="text-slate-700 dark:text-slate-300 font-bold mb-1">
               {fetchingPlaylist ? 'Analyzing Playlist...' : 'Analyzing Media...'}
             </h4>
             <p className="text-slate-500 text-xs">This may take a few seconds...</p>
@@ -233,9 +233,9 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
         ) : (
           <>
             {playlistData && playlistData.entries && playlistData.entries.length > 0 && mode === 'QUEUE' && (
-              <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl overflow-hidden animate-fadeIn mb-5">
-                <div className="bg-slate-800 p-3 border-b border-slate-700 flex justify-between items-center">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Playlist: {playlistData.title || 'Untitled'}</h4>
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-xl overflow-hidden animate-fadeIn mb-5 shadow-inner">
+                <div className="bg-slate-100 dark:bg-slate-800 p-3 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                  <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Playlist: {playlistData.title || 'Untitled'}</h4>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -267,7 +267,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                           else next.add(id);
                           setSelectedPlaylistItems(next);
                         }}
-                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-blue-600/20 text-blue-200' : 'hover:bg-slate-800 text-slate-400'}`}
+                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-blue-600/20 text-blue-700 dark:text-blue-200' : 'hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'}`}
                       >
                         <div className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${isSelected ? 'bg-blue-600 border-blue-500 text-white' : 'border-slate-600'}`}>
                           {isSelected && <i className="fa-solid fa-check"></i>}
@@ -281,18 +281,18 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
             )}
 
             {metadata && (!playlistData || !playlistData.entries || playlistData.entries.length === 0 || mode !== 'QUEUE') && (
-              <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-3 flex gap-4 animate-fadeIn">
+              <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700/50 rounded-xl p-3 flex gap-4 animate-fadeIn shadow-inner">
                 {metadata.thumbnail && (
-                  <img src={metadata.thumbnail} alt="" className="w-24 h-16 object-cover rounded-lg shadow-lg" />
+                  <img src={metadata.thumbnail} alt="" className="w-24 h-16 object-cover rounded-lg shadow-md" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-bold text-slate-200 truncate">{metadata.title}</h4>
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{metadata.title}</h4>
                   <p className="text-xs text-slate-500 mt-1 truncate">{metadata.uploader || metadata.webpage_url_domain}</p>
                   <div className="flex gap-2 mt-2">
-                    <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 font-mono">
+                    <span className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 font-mono">
                       {metadata.duration_string || 'N/A'}
                     </span>
-                    <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20 font-mono">
+                    <span className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded border border-purple-500/20 font-mono">
                       {metadata.view_count ? `${(metadata.view_count / 1000000).toFixed(1)}M views` : 'N/A'}
                     </span>
                   </div>
@@ -325,7 +325,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                     value={resolution}
                     onChange={e => setResolution(e.target.value)}
                     disabled={AUDIO_EXTENSIONS.includes(format.toLowerCase())}
-                    className={`w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-950`}
+                    className={`w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 dark:focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-950 text-slate-900 dark:text-white`}
                   >
                     {availableResolutions.map(res => (
                       <option key={res} value={res}>{res === 'best' ? 'Best Quality' : res}</option>
@@ -340,7 +340,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                   <select
                     value={format}
                     onChange={e => setFormat(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 dark:focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer text-slate-900 dark:text-white"
                   >
                     {videoFormats.length > 0 && (
                       <optgroup label="Video Formats">
@@ -370,7 +370,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                   value={filename}
                   onChange={e => setFilename(e.target.value)}
                   placeholder="video_name (extension added automatically)"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm pr-10"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 dark:focus:border-blue-500 transition-all text-sm pr-10 text-slate-900 dark:text-white"
                 />
                 <i className="fa-solid fa-file-signature absolute right-4 top-1/2 -translate-y-1/2 text-slate-600"></i>
               </div>
@@ -380,12 +380,12 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
       }
 
       <div>
-        <div className="flex justify-between items-center mb-2">
-          <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Advanced Options</label>
+        <div className="flex justify-between items-center mb-3">
+          <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1">Advanced Options</label>
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className={`text-[10px] font-bold px-2 py-1 rounded transition-all ${showAdvanced ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-400'}`}
+            className={`text-[10px] font-extrabold px-3 py-1 rounded-full transition-all tracking-tighter ${showAdvanced ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}
           >
             {showAdvanced ? 'ENABLED' : 'DISABLED'}
           </button>
@@ -401,7 +401,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                   value={referer}
                   onChange={e => setReferer(e.target.value)}
                   placeholder="https://example.com/source (Optional)"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm pr-10"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 dark:focus:border-blue-500 transition-all text-sm pr-10 text-slate-900 dark:text-white"
                 />
                 <i className="fa-solid fa-compass absolute right-4 top-1/2 -translate-y-1/2 text-slate-700"></i>
               </div>
@@ -424,7 +424,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                 onChange={e => setExtraArgs(e.target.value)}
                 placeholder="--proxy http://127.0.0.1:1080 --cookies-from-browser chrome ..."
                 rows={3}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm font-mono resize-none shadow-inner"
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 dark:focus:border-blue-500 transition-all text-sm font-mono resize-none shadow-inner text-slate-900 dark:text-white"
               />
             </div>
 
@@ -434,7 +434,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                   key={p.id}
                   type="button"
                   onClick={() => applyPreset(p.args)}
-                  className="text-[10px] bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1 rounded-full text-slate-300 font-medium transition-colors"
+                  className="text-[10px] bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-full text-slate-600 dark:text-slate-300 font-medium transition-colors"
                 >
                   {p.name}
                 </button>
@@ -443,24 +443,24 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
           </div>
         )}
 
-        <div className="mt-4 border-t border-slate-800 pt-4">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200 dark:border-slate-700/50 transition-all">
             <button
               type="button"
               onClick={() => setSponsorBlock(!sponsorBlock)}
-              className={`w-10 h-5 rounded-full relative transition-colors ${sponsorBlock ? 'bg-green-500' : 'bg-slate-700'}`}
+              className={`w-10 h-5 rounded-full relative transition-all ${sponsorBlock ? 'bg-green-500 shadow-lg shadow-green-500/30' : 'bg-slate-300 dark:bg-slate-700'}`}
             >
-              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${sponsorBlock ? 'left-6' : 'left-1'}`}></div>
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all shadow-sm ${sponsorBlock ? 'left-6' : 'left-1'}`}></div>
             </button>
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider cursor-pointer select-none" onClick={() => setSponsorBlock(!sponsorBlock)}>
+            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest cursor-pointer select-none" onClick={() => setSponsorBlock(!sponsorBlock)}>
               Enable SponsorBlock
             </label>
           </div>
 
           {sponsorBlock && (
-            <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 animate-fadeIn grid grid-cols-2 gap-2">
+            <div className="bg-white dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50 animate-fadeIn grid grid-cols-2 gap-2 shadow-sm">
               {SPONSORBLOCK_CATEGORIES.map(cat => (
-                <label key={cat.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-800/50 p-1.5 rounded-lg transition-colors">
+                <label key={cat.id} className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 p-2 rounded-xl transition-all group">
                   <input
                     type="checkbox"
                     checked={sponsorBlockCategories.includes(cat.id)}
@@ -471,9 +471,9 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                         setSponsorBlockCategories(sponsorBlockCategories.filter(c => c !== cat.id));
                       }
                     }}
-                    className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900 cursor-pointer"
+                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-white dark:focus:ring-offset-slate-900 cursor-pointer"
                   />
-                  <span className="text-xs text-slate-300">{cat.label}</span>
+                  <span className="text-xs text-slate-700 dark:text-slate-300">{cat.label}</span>
                 </label>
               ))}
             </div>
@@ -485,15 +485,15 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
         <button
           type="submit"
           disabled={isProcessing && mode === 'SINGLE'}
-          className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all relative overflow-hidden group ${isProcessing && mode === 'SINGLE'
-            ? 'bg-slate-700 cursor-not-allowed text-slate-500'
+          className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all relative overflow-hidden group ${isProcessing && mode === 'SINGLE'
+            ? 'bg-slate-200 dark:bg-slate-800 cursor-not-allowed text-slate-400 dark:text-slate-600'
             : mode === 'SINGLE'
-              ? 'bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-900/40 active:scale-[0.98]'
-              : 'bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-900/40 active:scale-[0.98]'
+              ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-500/30 dark:shadow-blue-900/40 active:scale-[0.98]'
+              : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-xl shadow-indigo-500/30 dark:shadow-indigo-900/40 active:scale-[0.98]'
             }`}
         >
           <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-          <i className={`fa-solid ${mode === 'SINGLE' ? 'fa-download' : 'fa-plus'} relative z-10`}></i>
+          <i className={`fa-solid ${mode === 'SINGLE' ? 'fa-download' : 'fa-plus'} relative z-10 ${isProcessing && mode === 'SINGLE' ? 'animate-bounce' : ''}`}></i>
           <span className="relative z-10">
             {mode === 'SINGLE' ? (isProcessing ? 'Processing...' : 'Download Now') :
               (selectedPlaylistItems.size > 0 ? `Add ${selectedPlaylistItems.size} items to Queue` : 'Add to Queue')}

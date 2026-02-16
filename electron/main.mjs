@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
@@ -11,6 +11,8 @@ const isDev = !app.isPackaged;
 if (process.platform === 'win32') {
   app.setAppUserModelId('Media-Pull DL');
 }
+
+Menu.setApplicationMenu(null);
 
 const activeDownloads = new Map(); // id => child process
 

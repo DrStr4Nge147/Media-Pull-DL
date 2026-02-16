@@ -25,13 +25,13 @@ const ActivityLog: React.FC<Props> = ({ item }) => {
   }, [item.logs]);
 
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden flex flex-col min-h-[200px] max-h-[350px] md:max-h-none md:flex-1 shadow-2xl">
-      <div className="p-3 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2 max-w-[70%] truncate">
-          <i className="fa-solid fa-terminal text-green-400"></i>
-          Terminal: <span className="text-slate-500 normal-case font-mono">{item.url}</span>
+    <div className="bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden flex flex-col min-h-[200px] max-h-[350px] md:max-h-none md:flex-1 shadow-inner dark:shadow-2xl">
+      <div className="p-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2 max-w-[70%] truncate">
+          <i className="fa-solid fa-terminal text-green-600 dark:text-green-400"></i>
+          Terminal: <span className="text-slate-400 dark:text-slate-500 normal-case font-mono">{item.url}</span>
         </h3>
-        <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded shrink-0">
+        <span className="text-[10px] font-mono text-slate-500 bg-slate-100 dark:bg-slate-950 px-2 py-0.5 rounded shrink-0 border border-slate-200 dark:border-slate-800">
           ID: {item.id.slice(0, 8)}
         </span>
       </div>
