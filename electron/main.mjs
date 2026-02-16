@@ -191,9 +191,11 @@ const checkForUpdates = async (win) => {
     const data = await response.json();
     const latestVersion = data.tag_name; // usually looks like '2023.03.04' or '2023.03.04.1'
 
-    // Clean up version strings (remove dots or just compare if they are dates)
-    // yt-dlp version is often YYYY.MM.DD
-    if (currentVersion !== latestVersion) {
+    // Clean up version strings (remove 'v' prefix and trim)
+    const cleanCurrent = currentVersion.trim().replace(/^v/i, '');
+    const cleanLatest = latestVersion.trim().replace(/^v/i, '');
+
+    if (cleanCurrent !== cleanLatest) {
       win.webContents.send('yt-dlp-update-available', { current: currentVersion, latest: latestVersion });
     } else {
       win.webContents.send('yt-dlp-up-to-date', currentVersion);
@@ -240,12 +242,9 @@ const checkForAppUpdates = async (win) => {
 
 ipcMain.handle('download-app-update', async (event, { downloadUrl, assetName }) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  const { spawn } = await import('node:child_process');
-
-  // For portable apps, app.getPath('exe') points to the temp extracted file.
-  // process.env.PORTABLE_EXECUTABLE_PATH points to the actual .exe the user clicked.
-  const currentPath = process.env.PORTABLE_EXECUTABLE_PATH || app.getPath('exe');
-  const tempPath = path.join(app.getPath('temp'), assetName);
+  const currentFile = process.env.PORTABLE_EXECUTABLE_PATH || app.getPath('exe');
+  const currentDir = path.dirname(currentFile);
+  const targetPath = path.join(currentDir, assetName);
 
   try {
     win.webContents.send('app-update-progress', { status: 'Downloading...', progress: 10 });
@@ -254,51 +253,16 @@ ipcMain.handle('download-app-update', async (event, { downloadUrl, assetName }) 
     if (!response.ok) throw new Error('Failed to download update');
 
     const arrayBuffer = await response.arrayBuffer();
-    await fs.writeFile(tempPath, Buffer.from(arrayBuffer));
+    await fs.writeFile(targetPath, Buffer.from(arrayBuffer));
 
-    win.webContents.send('app-update-progress', { status: 'Preparing restart...', progress: 90 });
+    win.webContents.send('app-update-progress', { status: 'Download Complete!', progress: 100 });
 
-    // The Swap Script:
-    // 1. Wait for process to fully exit
-    // 2. Retry loop for copying (if file is locked)
-    // 3. Start the new exe
-    // 4. Force cleanup
-    const psCommand = `
-      $temp = '${tempPath}';
-      $dest = '${currentPath}';
-      
-      # Wait up to 5 seconds for the file to be unlocked
-      for ($i=0; $i -lt 10; $i++) {
-          try {
-              Copy-Item -Path $temp -Destination $dest -Force -ErrorAction Stop;
-              break;
-          } catch {
-              Start-Sleep -Milliseconds 500;
-          }
-      }
-      
-      Start-Process -FilePath $dest;
-      # Delete temp file after a short delay
-      Start-Sleep -s 1;
-      if (Test-Path $temp) { Remove-Item -Path $temp -Force; }
-    `;
-
-    // Execute detached PowerShell and quit the current app
-    // We use -EncodedCommand or a very carefully escaped string to avoid path errors
-    const encodedCommand = Buffer.from(psCommand, 'utf16le').toString('base64');
-
-    spawn('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encodedCommand], {
-      detached: true,
-      stdio: 'ignore'
-    }).unref();
-
-    setTimeout(() => {
-      app.quit();
-    }, 500);
+    // Open the folder so user can see the new file
+    await shell.showItemInFolder(targetPath);
 
     return { success: true };
   } catch (error) {
-    console.error('Update install failed:', error);
+    console.error('Update download failed:', error);
     return { success: false, error: error.message };
   }
 });
