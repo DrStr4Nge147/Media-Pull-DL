@@ -5,7 +5,12 @@
 
 Media-Pull DL provides a premium, intuitive interface for downloading media from hundreds of supported websites. Whether you're grabbing a single video or managing a massive download queue, Media-Pull DL handles it with ease, providing real-time terminal feedback and a comprehensive download history.
 
-![Media-Pull DL UI Interface](public/assets/Media-Pull%20DL%20UI%20Interface.PNG)
+### 🎨 Theme Support
+Choose the look that suits you best. Media-Pull DL ahora includes both **Light** and **Dark** modes for a personalized experience.
+
+| Light Mode | Dark Mode |
+|------------|-----------|
+| ![Light Mode](public/assets/Media%20Pull%20DL%20Light%20Mode%20UI.jpg) | ![Dark Mode](public/assets/MediaPull%20DLDark%20Mode%20UI.jpg) |
 
 ---
 
