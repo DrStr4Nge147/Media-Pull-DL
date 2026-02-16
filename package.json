@@ -30,7 +30,7 @@
         "portable"
       ],
       "icon": "public/logo.png",
-      "artifactName": "Media-Pull DL v${version}.${ext}"
+      "artifactName": "Media-Pull.DL.v${version}.${ext}"
     },
     "extraResources": [
       {
