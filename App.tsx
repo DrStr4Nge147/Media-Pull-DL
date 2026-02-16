@@ -202,7 +202,8 @@ const App: React.FC = () => {
       status: DownloadStatus.PENDING,
       progress: 0,
       logs: [`[System] Added to queue at ${new Date().toLocaleTimeString()}`],
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      noPlaylist: viewMode === 'SINGLE'
     };
     setQueue(prev => [...prev, newItem]);
 
@@ -218,7 +219,8 @@ const App: React.FC = () => {
       status: DownloadStatus.PENDING,
       progress: 0,
       logs: [`[System] Added to queue at ${new Date().toLocaleTimeString()}`],
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      noPlaylist: true
     }));
     setQueue(prev => [...prev, ...newItems]);
   };

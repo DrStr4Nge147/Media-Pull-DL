@@ -22,6 +22,7 @@ export interface DownloadItem {
   error?: string;
   sponsorBlock?: boolean;
   sponsorBlockCategories?: string[];
+  noPlaylist?: boolean;
   timestamp: number;
 }
 

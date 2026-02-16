@@ -281,7 +281,7 @@ export const getPlaylistMetadata = async (url) => {
   });
 };
 
-export const runYtDlp = async ({ url, referer, destination, filename, format, resolution, extraArgs, sponsorBlock, sponsorBlockCategories }, onProgress, onLog, onCreated) => {
+export const runYtDlp = async ({ url, referer, destination, filename, format, resolution, extraArgs, sponsorBlock, sponsorBlockCategories, noPlaylist }, onProgress, onLog, onCreated) => {
   const resolvedDest = resolveDestination(destination);
   await fs.mkdir(resolvedDest, { recursive: true });
 
@@ -297,6 +297,10 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
     '--output', outputPathTemplate,
     '--newline',
   ];
+
+  if (noPlaylist) {
+    args.push('--no-playlist');
+  }
 
   if (process.env.PATH?.includes('node') || process.env.PATH?.includes('Node')) {
     args.push('--js-runtime', 'node');

@@ -11,7 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron ./electron/main.mjs",
-    "build:electron": "vite build && electron-builder"
+    "build:electron": "vite build && electron-builder && node electron/zip-build.js"
   },
   "build": {
     "appId": "com.mediapull.dl",
@@ -30,7 +30,7 @@
         "portable"
       ],
       "icon": "public/logo.png",
-      "artifactName": "Media-Pull DL.${ext}"
+      "artifactName": "Media-Pull DL v${version}.${ext}"
     },
     "extraResources": [
       {
