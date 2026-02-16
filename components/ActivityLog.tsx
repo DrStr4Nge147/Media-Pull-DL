@@ -37,7 +37,7 @@ const ActivityLog: React.FC<Props> = ({ item }) => {
       </div>
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto p-4 font-mono text-xs text-slate-300 space-y-1"
+        className="flex-1 overflow-y-auto p-4 font-mono text-xs text-slate-300 space-y-1 select-text"
       >
         {item.logs.map((log, idx) => (
           <div key={idx} className="flex gap-3">

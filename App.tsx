@@ -516,7 +516,7 @@ const App: React.FC = () => {
               )}
             </div>
             <div className="p-6">
-              <div className="bg-slate-950 p-4 rounded-xl font-mono text-sm h-64 overflow-y-auto border border-slate-800 shadow-inner">
+              <div className="bg-slate-950 p-4 rounded-xl font-mono text-sm h-64 overflow-y-auto border border-slate-800 shadow-inner select-text">
                 {updateLogs.map((log, i) => (
                   <div key={i} className={`mb-1 ${log.startsWith('[Error]') ? 'text-red-400' : log.startsWith('[System]') ? 'text-blue-400' : 'text-slate-300'}`}>
                     {log}

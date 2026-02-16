@@ -13,6 +13,8 @@ interface Props {
   onClear?: () => void;
 }
 
+const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'flac', 'aac', 'opus', 'ogg', 'm4r'];
+
 const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mode, settings, sharedDestination, setSharedDestination, onClear }) => {
   const [url, setUrl] = useState('');
   const [referer, setReferer] = useState('');
@@ -32,6 +34,9 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
   const [availableFormats, setAvailableFormats] = useState<string[]>(['mp4', 'mkv', 'webm', 'mp3', 'm4a']);
   const [sponsorBlock, setSponsorBlock] = useState(false);
   const [sponsorBlockCategories, setSponsorBlockCategories] = useState<string[]>(['music_offtopic']);
+
+  const videoFormats = availableFormats.filter(ext => !AUDIO_EXTENSIONS.includes(ext.toLowerCase()));
+  const audioFormats = availableFormats.filter(ext => AUDIO_EXTENSIONS.includes(ext.toLowerCase()));
 
   const SPONSORBLOCK_CATEGORIES = [
     { id: 'music_offtopic', label: 'Non-music and off-topic portions' },
@@ -209,7 +214,6 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
             className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm pr-10"
           />
           <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            {fetchingMetadata && <i className="fa-solid fa-circle-notch fa-spin text-blue-500 text-xs"></i>}
             <i className="fa-solid fa-link text-slate-600"></i>
           </div>
         </div>
@@ -313,12 +317,15 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
 
             <div className="grid grid-cols-2 gap-4 animate-fadeIn">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Resolution</label>
+                <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 transition-colors ${AUDIO_EXTENSIONS.includes(format.toLowerCase()) ? 'text-slate-600' : 'text-slate-400'}`}>
+                  Resolution
+                </label>
                 <div className="relative">
                   <select
                     value={resolution}
                     onChange={e => setResolution(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer"
+                    disabled={AUDIO_EXTENSIONS.includes(format.toLowerCase())}
+                    className={`w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-950`}
                   >
                     {availableResolutions.map(res => (
                       <option key={res} value={res}>{res === 'best' ? 'Best Quality' : res}</option>
@@ -335,9 +342,20 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                     onChange={e => setFormat(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer"
                   >
-                    {availableFormats.map(ext => (
-                      <option key={ext} value={ext}>{ext.toUpperCase()}</option>
-                    ))}
+                    {videoFormats.length > 0 && (
+                      <optgroup label="Video Formats">
+                        {videoFormats.map(ext => (
+                          <option key={ext} value={ext}>{ext.toUpperCase()}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {audioFormats.length > 0 && (
+                      <optgroup label="Audio Formats">
+                        {audioFormats.map(ext => (
+                          <option key={ext} value={ext}>{ext.toUpperCase()}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none"></i>
                 </div>
