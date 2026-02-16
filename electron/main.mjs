@@ -205,7 +205,7 @@ const checkForUpdates = async (win) => {
 
 const checkForAppUpdates = async (win) => {
   try {
-    const currentVersion = appVersion; // Already defined at the top
+    const currentVersion = appVersion;
     const response = await fetch('https://api.github.com/repos/DrStr4Nge147/Media-Pull-DL/releases/latest');
 
     if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
@@ -213,18 +213,21 @@ const checkForAppUpdates = async (win) => {
     const data = await response.json();
     let latestVersion = data.tag_name;
 
-    // Remove 'v' or 'V' prefix if present for comparison (case insensitive)
     const cleanLatest = latestVersion.replace(/^v/i, '');
     const cleanCurrent = currentVersion.replace(/^v/i, '');
 
+    // Find the .exe asset
+    const exeAsset = data.assets.find(asset => asset.name.endsWith('.exe'));
+
     if (cleanCurrent !== cleanLatest) {
-      // Send log to renderer for debugging
       console.log(`[App Update] Update available: ${cleanCurrent} -> ${cleanLatest}`);
 
       win.webContents.send('app-update-available', {
         current: currentVersion,
         latest: latestVersion,
-        url: data.html_url
+        url: data.html_url,
+        downloadUrl: exeAsset ? exeAsset.browser_download_url : null,
+        assetName: exeAsset ? exeAsset.name : null
       });
     } else {
       console.log(`[App Update] App is up to date: ${cleanCurrent}`);
@@ -234,6 +237,52 @@ const checkForAppUpdates = async (win) => {
     console.error('Failed to check for App updates:', error);
   }
 };
+
+ipcMain.handle('download-app-update', async (event, { downloadUrl, assetName }) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { spawn } = await import('node:child_process');
+  const tempPath = path.join(app.getPath('temp'), assetName);
+  const currentPath = app.getPath('exe');
+
+  try {
+    win.webContents.send('app-update-progress', { status: 'Downloading...', progress: 10 });
+
+    const response = await fetch(downloadUrl);
+    if (!response.ok) throw new Error('Failed to download update');
+
+    const arrayBuffer = await response.arrayBuffer();
+    await fs.writeFile(tempPath, Buffer.from(arrayBuffer));
+
+    win.webContents.send('app-update-progress', { status: 'Preparing restart...', progress: 90 });
+
+    // The Swap Script:
+    // 1. Wait 2 seconds for app to exit
+    // 2. Force copy (overwrite) the new exe over the old one
+    // 3. Start the new exe
+    // 4. Delete the temp copy
+    const psCommand = `
+      Start-Sleep -s 2;
+      Copy-Item -Path "${tempPath}" -Destination "${currentPath}" -Force;
+      Start-Process -FilePath "${currentPath}";
+      Remove-Item -Path "${tempPath}" -Force;
+    `;
+
+    // Execute detached PowerShell and quit the current app
+    spawn('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', psCommand], {
+      detached: true,
+      stdio: 'ignore'
+    }).unref();
+
+    setTimeout(() => {
+      app.quit();
+    }, 1000);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Update install failed:', error);
+    return { success: false, error: error.message };
+  }
+});
 
 ipcMain.handle('get-video-metadata', async (_event, url) => {
   try {

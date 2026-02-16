@@ -89,10 +89,17 @@ contextBridge.exposeInMainWorld('onAppUpdateAvailable', (callback) => {
   ipcRenderer.on('app-update-available', (_, data) => callback(data));
 });
 
+contextBridge.exposeInMainWorld('onAppUpdateProgress', (callback) => {
+  ipcRenderer.on('app-update-progress', (_, data) => callback(data));
+});
+
+contextBridge.exposeInMainWorld('downloadAppUpdate', (payload) => {
+  return ipcRenderer.invoke('download-app-update', payload);
+});
+
 contextBridge.exposeInMainWorld('onAppUpToDate', (callback) => {
   ipcRenderer.on('app-up-to-date', (_, version) => callback(version));
 });
-
 
 contextBridge.exposeInMainWorld('sendNotification', (title, body) => {
   return ipcRenderer.invoke('send-notification', { title, body });

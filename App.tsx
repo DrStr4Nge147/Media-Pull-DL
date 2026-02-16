@@ -43,8 +43,10 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
-  const [appUpdateInfo, setAppUpdateInfo] = useState<{ current: string; latest: string; url: string } | null>(null);
+  const [appUpdateInfo, setAppUpdateInfo] = useState<{ current: string; latest: string; url: string; downloadUrl?: string; assetName?: string } | null>(null);
   const [showAppUpdateModal, setShowAppUpdateModal] = useState(false);
+  const [installingAppUpdate, setInstallingAppUpdate] = useState(false);
+  const [appUpdateStatus, setAppUpdateStatus] = useState<{ status: string; progress: number }>({ status: '', progress: 0 });
 
   // Update detection
   useEffect(() => {
@@ -111,9 +113,15 @@ const App: React.FC = () => {
     }
 
     if (typeof w.onAppUpdateAvailable === 'function') {
-      w.onAppUpdateAvailable((data: { current: string; latest: string; url: string }) => {
+      w.onAppUpdateAvailable((data: { current: string; latest: string; url: string; downloadUrl?: string; assetName?: string }) => {
         setAppUpdateInfo(data);
         setShowAppUpdateModal(true);
+      });
+    }
+
+    if (typeof w.onAppUpdateProgress === 'function') {
+      w.onAppUpdateProgress((data: { status: string; progress: number }) => {
+        setAppUpdateStatus(data);
       });
     }
 
@@ -152,6 +160,32 @@ const App: React.FC = () => {
       setUpdateLogs(prev => [...prev, `[Error] ${e instanceof Error ? e.message : String(e)}`]);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleInstallAppUpdate = async () => {
+    if (!appUpdateInfo?.downloadUrl || !appUpdateInfo?.assetName) {
+      // Fallback if asset info is missing
+      const w = window as any;
+      if (typeof w.openExternal === 'function') {
+        w.openExternal(appUpdateInfo?.url);
+      } else {
+        window.open(appUpdateInfo?.url, '_blank');
+      }
+      return;
+    }
+
+    setInstallingAppUpdate(true);
+    const w = window as any;
+    try {
+      await w.downloadAppUpdate({
+        downloadUrl: appUpdateInfo.downloadUrl,
+        assetName: appUpdateInfo.assetName
+      });
+    } catch (e) {
+      console.error('Update failed:', e);
+      setInstallingAppUpdate(false);
+      alert('Automatic update failed. Please download manually from GitHub.');
     }
   };
 
@@ -468,31 +502,50 @@ const App: React.FC = () => {
                   <span className="text-xs text-purple-400 uppercase tracking-wider font-bold">Latest Version</span>
                   <span className="text-sm font-mono text-purple-400 font-bold">{appUpdateInfo.latest}</span>
                 </div>
+
+                {installingAppUpdate && (
+                  <div className="mt-4 pt-4 border-t border-slate-800">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[10px] font-bold text-purple-400 uppercase">{appUpdateStatus.status}</span>
+                      <span className="text-[10px] font-mono text-slate-400">{appUpdateStatus.progress}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+                        style={{ width: `${appUpdateStatus.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3">
                 <button
+                  disabled={installingAppUpdate}
                   onClick={() => {
                     setShowAppUpdateModal(false);
                   }}
-                  className="flex-1 px-6 py-3 rounded-xl font-bold bg-slate-700 hover:bg-slate-600 transition-all text-slate-300"
+                  className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${installingAppUpdate ? 'bg-slate-800 text-slate-600 opacity-50' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
                 >
                   <i className="fa-solid fa-clock mr-2"></i>
                   Later
                 </button>
                 <button
-                  onClick={() => {
-                    setShowAppUpdateModal(false);
-                    if (typeof (window as any).openExternal === 'function') {
-                      (window as any).openExternal(appUpdateInfo.url);
-                    } else {
-                      window.open(appUpdateInfo.url, '_blank');
-                    }
-                  }}
-                  className="flex-1 px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-900/40 active:scale-95"
+                  disabled={installingAppUpdate}
+                  onClick={handleInstallAppUpdate}
+                  className={`flex-1 px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-900/40 active:scale-95 flex items-center justify-center gap-2 ${installingAppUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <i className="fa-brands fa-github mr-2"></i>
-                  Download Now
+                  {installingAppUpdate ? (
+                    <>
+                      <i className="fa-solid fa-spinner animate-spin"></i>
+                      Installing...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-cloud-arrow-down"></i>
+                      Update Now
+                    </>
+                  )}
                 </button>
               </div>
             </div>
