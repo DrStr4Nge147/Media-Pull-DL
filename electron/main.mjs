@@ -256,26 +256,42 @@ ipcMain.handle('download-app-update', async (event, { downloadUrl, assetName }) 
     win.webContents.send('app-update-progress', { status: 'Preparing restart...', progress: 90 });
 
     // The Swap Script:
-    // 1. Wait 2 seconds for app to exit
-    // 2. Force copy (overwrite) the new exe over the old one
+    // 1. Wait for process to fully exit
+    // 2. Retry loop for copying (if file is locked)
     // 3. Start the new exe
-    // 4. Delete the temp copy
+    // 4. Force cleanup
     const psCommand = `
-      Start-Sleep -s 2;
-      Copy-Item -Path "${tempPath}" -Destination "${currentPath}" -Force;
-      Start-Process -FilePath "${currentPath}";
-      Remove-Item -Path "${tempPath}" -Force;
+      $temp = '${tempPath}';
+      $dest = '${currentPath}';
+      
+      # Wait up to 5 seconds for the file to be unlocked
+      for ($i=0; $i -lt 10; $i++) {
+          try {
+              Copy-Item -Path $temp -Destination $dest -Force -ErrorAction Stop;
+              break;
+          } catch {
+              Start-Sleep -Milliseconds 500;
+          }
+      }
+      
+      Start-Process -FilePath $dest;
+      # Delete temp file after a short delay
+      Start-Sleep -s 1;
+      if (Test-Path $temp) { Remove-Item -Path $temp -Force; }
     `;
 
     // Execute detached PowerShell and quit the current app
-    spawn('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', psCommand], {
+    // We use -EncodedCommand or a very carefully escaped string to avoid path errors
+    const encodedCommand = Buffer.from(psCommand, 'utf16le').toString('base64');
+
+    spawn('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encodedCommand], {
       detached: true,
       stdio: 'ignore'
     }).unref();
 
     setTimeout(() => {
       app.quit();
-    }, 1000);
+    }, 500);
 
     return { success: true };
   } catch (error) {
