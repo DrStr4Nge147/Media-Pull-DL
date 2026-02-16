@@ -105,6 +105,10 @@ contextBridge.exposeInMainWorld('sendNotification', (title, body) => {
   return ipcRenderer.invoke('send-notification', { title, body });
 });
 
+contextBridge.exposeInMainWorld('closeApp', () => {
+  return ipcRenderer.invoke('close-app');
+});
+
 contextBridge.exposeInMainWorld('getAppVersion', () => {
   return ipcRenderer.invoke('get-app-version');
 });

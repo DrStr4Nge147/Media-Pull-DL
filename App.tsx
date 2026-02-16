@@ -182,6 +182,14 @@ const App: React.FC = () => {
         downloadUrl: appUpdateInfo.downloadUrl,
         assetName: appUpdateInfo.assetName
       });
+      // Give the user a moment to see "Download Complete!" then close
+      setTimeout(() => {
+        if (typeof w.closeApp === 'function') {
+          w.closeApp();
+        } else {
+          window.close();
+        }
+      }, 2000);
     } catch (e) {
       console.error('Update failed:', e);
       setInstallingAppUpdate(false);
@@ -490,7 +498,8 @@ const App: React.FC = () => {
                 New Version Available!
               </h3>
               <p className="text-slate-300 mb-6 leading-relaxed">
-                A new version of <span className="font-bold text-purple-400">Media-Pull DL</span> is ready to download.
+                A new version of <span className="font-bold text-purple-400">Media-Pull DL</span> is ready.
+                <span className="block mt-2 text-xs text-slate-500 italic">Updating to the latest version ensures better download efficiency, improved stability, and access to new features.</span>
               </p>
 
               <div className="bg-slate-950/50 rounded-xl p-4 mb-6 border border-slate-700">
@@ -538,7 +547,7 @@ const App: React.FC = () => {
                   {installingAppUpdate ? (
                     <>
                       <i className="fa-solid fa-spinner animate-spin"></i>
-                      Installing...
+                      Downloading...
                     </>
                   ) : (
                     <>
@@ -613,17 +622,12 @@ const App: React.FC = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Open release URL
-                        if (typeof (window as any).openExternal === 'function') {
-                          (window as any).openExternal(appUpdateInfo.url);
-                        } else {
-                          window.open(appUpdateInfo.url, '_blank');
-                        }
+                        setShowAppUpdateModal(true);
                       }}
                       className="group/app-update relative text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-purple-500/30 bg-purple-500/20 text-purple-400 shadow-sm font-bold flex items-center gap-1.5 hover:bg-purple-500/30 hover:border-purple-500/50 transition-all animate-pulse-slow ml-2"
                     >
-                      <i className="fa-brands fa-github"></i>
-                      App Update
+                      <i className="fa-solid fa-cloud-arrow-down"></i>
+                      Click To Update
                       {/* Tooltip */}
                       <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-slate-800 text-slate-200 text-[10px] rounded opacity-0 group-hover/app-update:opacity-100 transition-opacity pointer-events-none whitespace-nowrap border border-slate-700 shadow-2xl z-50">
                         Get <span className="font-mono text-purple-400">{appUpdateInfo.latest}</span>
@@ -660,6 +664,20 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              const url = "https://github.com/DrStr4Nge147/Media-Pull-DL";
+              if (typeof (window as any).openExternal === 'function') {
+                (window as any).openExternal(url);
+              } else {
+                window.open(url, '_blank');
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-700/50 hover:bg-slate-700 border border-slate-600/50 hover:border-slate-500 text-slate-300 hover:text-white transition-all text-sm font-bold group"
+          >
+            <i className="fa-brands fa-github text-lg group-hover:scale-110 transition-transform"></i>
+            <span>GitHub</span>
+          </button>
           {viewMode && (
             <button
               onClick={openDownloadFolder}

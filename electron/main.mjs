@@ -267,6 +267,10 @@ ipcMain.handle('download-app-update', async (event, { downloadUrl, assetName }) 
   }
 });
 
+ipcMain.handle('close-app', () => {
+  app.quit();
+});
+
 ipcMain.handle('get-video-metadata', async (_event, url) => {
   try {
     return await getVideoMetadata(url);
