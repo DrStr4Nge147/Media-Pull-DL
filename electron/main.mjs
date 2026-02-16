@@ -263,36 +263,7 @@ const checkForAppUpdates = async (win) => {
   }
 };
 
-ipcMain.handle('download-app-update', async (event, { downloadUrl, assetName }) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  const currentFile = process.env.PORTABLE_EXECUTABLE_PATH || app.getPath('exe');
-  const currentDir = path.dirname(currentFile);
-  const targetPath = path.join(currentDir, assetName);
 
-  try {
-    win.webContents.send('app-update-progress', { status: 'Downloading...', progress: 10 });
-
-    const response = await fetch(downloadUrl);
-    if (!response.ok) throw new Error('Failed to download update');
-
-    const arrayBuffer = await response.arrayBuffer();
-    await fs.writeFile(targetPath, Buffer.from(arrayBuffer));
-
-    win.webContents.send('app-update-progress', { status: 'Download Complete!', progress: 100 });
-
-    // Open the folder so user can see the new file
-    await shell.showItemInFolder(targetPath);
-
-    return { success: true };
-  } catch (error) {
-    console.error('Update download failed:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('close-app', () => {
-  app.quit();
-});
 
 ipcMain.handle('get-video-metadata', async (_event, url) => {
   try {
