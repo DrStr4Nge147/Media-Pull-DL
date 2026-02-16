@@ -229,7 +229,8 @@ const checkForAppUpdates = async (win) => {
         latest: latestVersion,
         url: data.html_url,
         downloadUrl: exeAsset ? exeAsset.browser_download_url : null,
-        assetName: exeAsset ? exeAsset.name : null
+        assetName: exeAsset ? exeAsset.name : null,
+        isPortable: !!process.env.PORTABLE_EXECUTABLE_PATH
       });
     } else {
       console.log(`[App Update] App is up to date: ${cleanCurrent}`);

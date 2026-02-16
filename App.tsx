@@ -43,7 +43,7 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
-  const [appUpdateInfo, setAppUpdateInfo] = useState<{ current: string; latest: string; url: string; downloadUrl?: string; assetName?: string } | null>(null);
+  const [appUpdateInfo, setAppUpdateInfo] = useState<{ current: string; latest: string; url: string; downloadUrl?: string; assetName?: string; isPortable?: boolean } | null>(null);
   const [showAppUpdateModal, setShowAppUpdateModal] = useState(false);
   const [installingAppUpdate, setInstallingAppUpdate] = useState(false);
   const [appUpdateStatus, setAppUpdateStatus] = useState<{ status: string; progress: number }>({ status: '', progress: 0 });
@@ -113,7 +113,7 @@ const App: React.FC = () => {
     }
 
     if (typeof w.onAppUpdateAvailable === 'function') {
-      w.onAppUpdateAvailable((data: { current: string; latest: string; url: string; downloadUrl?: string; assetName?: string }) => {
+      w.onAppUpdateAvailable((data: { current: string; latest: string; url: string; downloadUrl?: string; assetName?: string; isPortable?: boolean }) => {
         setAppUpdateInfo(data);
         setShowAppUpdateModal(true);
       });
@@ -541,7 +541,19 @@ const App: React.FC = () => {
                 </button>
                 <button
                   disabled={installingAppUpdate}
-                  onClick={handleInstallAppUpdate}
+                  onClick={async () => {
+                    if (appUpdateInfo.isPortable) {
+                      handleInstallAppUpdate();
+                    } else {
+                      const w = window as any;
+                      if (typeof w.openExternal === 'function') {
+                        w.openExternal(appUpdateInfo.url);
+                      } else {
+                        window.open(appUpdateInfo.url, '_blank');
+                      }
+                      setShowAppUpdateModal(false);
+                    }
+                  }}
                   className={`flex-1 px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-900/40 active:scale-95 flex items-center justify-center gap-2 ${installingAppUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {installingAppUpdate ? (
@@ -551,8 +563,8 @@ const App: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <i className="fa-solid fa-cloud-arrow-down"></i>
-                      Update Now
+                      <i className={appUpdateInfo.isPortable ? "fa-solid fa-cloud-arrow-down" : "fa-brands fa-github"}></i>
+                      {appUpdateInfo.isPortable ? "Download Now" : "Open GitHub"}
                     </>
                   )}
                 </button>
