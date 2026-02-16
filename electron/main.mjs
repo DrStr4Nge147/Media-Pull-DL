@@ -241,8 +241,11 @@ const checkForAppUpdates = async (win) => {
 ipcMain.handle('download-app-update', async (event, { downloadUrl, assetName }) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   const { spawn } = await import('node:child_process');
+
+  // For portable apps, app.getPath('exe') points to the temp extracted file.
+  // process.env.PORTABLE_EXECUTABLE_PATH points to the actual .exe the user clicked.
+  const currentPath = process.env.PORTABLE_EXECUTABLE_PATH || app.getPath('exe');
   const tempPath = path.join(app.getPath('temp'), assetName);
-  const currentPath = app.getPath('exe');
 
   try {
     win.webContents.send('app-update-progress', { status: 'Downloading...', progress: 10 });
