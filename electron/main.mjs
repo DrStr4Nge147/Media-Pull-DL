@@ -17,8 +17,7 @@ const activeDownloads = new Map(); // id => child process
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const packageJson = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
-const appVersion = packageJson.version;
+const appVersion = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
 
 const getDevServerUrl = () => {
   return process.env.VITE_DEV_SERVER_URL || 'http://localhost:3000';
@@ -59,6 +58,12 @@ const createWindow = async () => {
   }
 
   win.focus();
+
+  // Wait for content to load before sending update notification
+  win.webContents.once('did-finish-load', () => {
+    checkForUpdates(win);
+    setTimeout(() => checkForAppUpdates(win), 2000);
+  });
 };
 
 ipcMain.handle('open-download-folder', async (_event, destination) => {
@@ -188,8 +193,15 @@ const checkForUpdates = async (win) => {
   try {
     const currentVersion = await getYtDlpVersion();
     const response = await fetch('https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest');
+    if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
+
     const data = await response.json();
-    const latestVersion = data.tag_name; // usually looks like '2023.03.04' or '2023.03.04.1'
+    const latestVersion = data.tag_name;
+
+    if (!currentVersion || !latestVersion) {
+      console.log('[yt-dlp] Could not determine versions, skipping check.');
+      return;
+    }
 
     // Clean up version strings (remove 'v' prefix and trim)
     const cleanCurrent = currentVersion.trim().replace(/^v/i, '');
@@ -215,14 +227,26 @@ const checkForAppUpdates = async (win) => {
     const data = await response.json();
     let latestVersion = data.tag_name;
 
-    const cleanLatest = latestVersion.replace(/^v/i, '');
-    const cleanCurrent = currentVersion.replace(/^v/i, '');
+    if (!currentVersion || !latestVersion) {
+      console.log('[App Update] Could not determine versions, skipping check.');
+      return;
+    }
 
-    // Find the .exe asset
-    const exeAsset = data.assets.find(asset => asset.name.endsWith('.exe'));
+    const cleanLatest = latestVersion.toString().replace(/^v/i, '').trim();
+    const cleanCurrent = currentVersion.toString().replace(/^v/i, '').trim();
 
     if (cleanCurrent !== cleanLatest) {
-      console.log(`[App Update] Update available: ${cleanCurrent} -> ${cleanLatest}`);
+      // Robust check for portable build
+      const isPortable = !!(
+        process.env.PORTABLE_EXECUTABLE_PATH ||
+        process.env.PORTABLE_EXECUTABLE_DIR ||
+        app.getPath('exe').toLowerCase().includes('portable')
+      );
+
+      console.log(`[App Update] Update available: ${cleanCurrent} -> ${cleanLatest} (Portable: ${isPortable})`);
+
+      // Find the .exe asset
+      const exeAsset = data.assets.find(asset => asset.name.endsWith('.exe'));
 
       win.webContents.send('app-update-available', {
         current: currentVersion,
@@ -230,7 +254,7 @@ const checkForAppUpdates = async (win) => {
         url: data.html_url,
         downloadUrl: exeAsset ? exeAsset.browser_download_url : null,
         assetName: exeAsset ? exeAsset.name : null,
-        isPortable: !!process.env.PORTABLE_EXECUTABLE_PATH
+        isPortable: isPortable
       });
     } else {
       console.log(`[App Update] App is up to date: ${cleanCurrent}`);
@@ -323,20 +347,12 @@ app.whenReady().then(async () => {
   await bootstrapYtDlp((log) => console.log(log)).catch(console.error);
 
   await createWindow();
-  const [win] = BrowserWindow.getAllWindows();
-  if (win) {
-    // Wait for content to load before sending update notification
-    win.webContents.once('did-finish-load', () => {
-      checkForUpdates(win);
-      setTimeout(() => checkForAppUpdates(win), 2000); // Check for app updates slightly after yt-dlp check
-    });
-  }
+});
 
-  app.on('activate', async () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      await createWindow();
-    }
-  });
+app.on('activate', async () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    await createWindow();
+  }
 });
 
 app.on('window-all-closed', () => {
