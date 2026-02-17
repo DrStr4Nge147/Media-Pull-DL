@@ -19,6 +19,11 @@ const activeDownloads = new Map(); // id => child process
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const getAssetPath = (...paths) => {
+  return path.join(__dirname, '..', isDev ? 'public' : 'dist', ...paths);
+};
+
+
 const appVersion = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
 
 const getDevServerUrl = () => {
@@ -45,7 +50,8 @@ const createWindow = async () => {
     backgroundColor: '#0f172a',
     autoHideMenuBar: true,
     title: `Media-Pull DL v${appVersion}`,
-    icon: path.join(__dirname, '..', 'public', 'logo.ico'),
+    icon: getAssetPath('logo.ico'),
+
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -113,7 +119,8 @@ ipcMain.handle('send-notification', async (_event, { title, body }) => {
     const notification = new Notification({
       title,
       body,
-      icon: path.join(__dirname, '..', 'public', 'logo.png'),
+      icon: getAssetPath('logo.png'),
+
     });
     notification.show();
   }

@@ -6,7 +6,9 @@ import QueueList from './components/QueueList';
 import ActivityLog from './components/ActivityLog';
 import HistoryPage from './components/HistoryPage';
 import SettingsModal from './components/SettingsModal';
+import ConfirmationModal from './components/ConfirmationModal';
 import { v4 as uuidv4 } from 'uuid';
+
 
 const DEFAULT_SETTINGS: AppSettings = {
   defaultDestination: './YT-DLP',
@@ -51,6 +53,18 @@ const App: React.FC = () => {
   const [appDownloadedPath, setAppDownloadedPath] = useState<string | null>(null);
   const [isDownloadingApp, setIsDownloadingApp] = useState(false);
   const [appDownloadError, setAppDownloadError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: () => { }
+  });
+
 
   // Update detection
   useEffect(() => {
@@ -492,21 +506,40 @@ const App: React.FC = () => {
   };
 
   const clearQueue = () => {
-    if (window.confirm('Clear all downloads?')) {
-      setQueue([]);
-      setIsProcessing(false);
-      setCurrentIndex(-1);
-    }
+    setShowConfirmModal({
+      show: true,
+      title: 'Clear Batch List?',
+      message: 'Are you sure you want to remove all items from the current batch list? This action cannot be undone.',
+      onConfirm: () => {
+        setQueue([]);
+        setIsProcessing(false);
+        setCurrentIndex(-1);
+        setShowConfirmModal(prev => ({ ...prev, show: false }));
+      }
+    });
   };
+
 
   const resetView = () => {
     if (isProcessing) {
-      if (!window.confirm('A download is in progress. Are you sure you want to exit?')) return;
+      setShowConfirmModal({
+        show: true,
+        title: 'Exit Progress?',
+        message: 'A download is currently in progress. Exiting to the menu will stop monitoring this session. Continue?',
+        onConfirm: () => {
+          setViewMode(null);
+          setIsProcessing(false);
+          setCurrentIndex(-1);
+          setShowConfirmModal(prev => ({ ...prev, show: false }));
+        }
+      });
+      return;
     }
     setViewMode(null);
     setIsProcessing(false);
     setCurrentIndex(-1);
   };
+
 
   const totalItems = queue.length;
   const completedItems = queue.filter(i => i.status === DownloadStatus.COMPLETED).length;
@@ -776,9 +809,20 @@ const App: React.FC = () => {
       ) : viewMode === 'HISTORY' ? (
         <HistoryPage
           history={history}
-          onClear={() => setHistory([])}
+          onClear={() => {
+            setShowConfirmModal({
+              show: true,
+              title: 'Clear History?',
+              message: 'Are you sure you want to permanently delete your entire download history? This cannot be undone.',
+              onConfirm: () => {
+                setHistory([]);
+                setShowConfirmModal(prev => ({ ...prev, show: false }));
+              }
+            });
+          }}
           onRemove={(id) => setHistory(prev => prev.filter(i => i.id !== id))}
         />
+
       ) : (
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 overflow-hidden w-full max-w-[1800px] mx-auto">
           <div className="md:col-span-5 lg:col-span-4 xl:col-span-3 h-full flex flex-col space-y-6 overflow-y-auto pr-1 md:pr-2 custom-scrollbar">
@@ -909,9 +953,19 @@ const App: React.FC = () => {
         />
       )}
 
+      {showConfirmModal.show && (
+        <ConfirmationModal
+          title={showConfirmModal.title}
+          message={showConfirmModal.message}
+          onConfirm={showConfirmModal.onConfirm}
+          onCancel={() => setShowConfirmModal(prev => ({ ...prev, show: false }))}
+        />
+      )}
+
       <footer className="mt-6 flex-shrink-0 text-center text-slate-500 text-[10px] uppercase tracking-widest opacity-50">
         <p>Media-Pull DL • Simplistic Media Download Manager</p>
       </footer>
+
       {/* Up to date Toast */}
       {updateSuccess && (
         <div className="fixed bottom-8 right-8 z-[100] bg-white dark:bg-slate-900/90 backdrop-blur-md border border-emerald-500/50 px-6 py-4 rounded-2xl shadow-2xl dark:shadow-emerald-950/20 flex items-center gap-4 animate-slideInRight">
@@ -930,6 +984,7 @@ const App: React.FC = () => {
           </button>
         </div>
       )}
+
       {/* Settings Saved Toast */}
       {settingsSaved && (
         <div className="fixed bottom-8 right-8 z-[100] bg-white dark:bg-slate-900/90 backdrop-blur-md border border-emerald-500/50 px-6 py-4 rounded-2xl shadow-2xl dark:shadow-emerald-950/20 flex items-center gap-4 animate-slideInRight">

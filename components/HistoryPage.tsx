@@ -38,13 +38,10 @@ const HistoryPage: React.FC<Props> = ({ history, onClear, onRemove }) => {
                     </p>
                 </div>
                 <button
-                    onClick={() => {
-                        if (window.confirm('Are you sure you want to clear your entire download history?')) {
-                            onClear();
-                        }
-                    }}
+                    onClick={onClear}
                     className="w-full sm:w-auto bg-red-500/10 hover:bg-red-500/20 text-red-500 px-5 py-2.5 rounded-2xl text-[11px] font-bold transition-all border border-red-500/20 flex items-center justify-center gap-2 uppercase tracking-wider"
                 >
+
                     <i className="fa-solid fa-trash-can"></i>
                     Clear History
                 </button>

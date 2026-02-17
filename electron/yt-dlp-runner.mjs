@@ -7,6 +7,24 @@ import { pipeline } from 'node:stream/promises';
 
 const isDev = !app.isPackaged;
 
+let cachedGlobalFfmpeg = null;
+const isFfmpegAvailableGlobal = async () => {
+  if (cachedGlobalFfmpeg !== null) return cachedGlobalFfmpeg;
+  return new Promise((resolve) => {
+    const executable = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+    const child = spawn(executable, ['-version'], { stdio: 'ignore' });
+    child.on('close', (code) => {
+      cachedGlobalFfmpeg = code === 0;
+      resolve(cachedGlobalFfmpeg);
+    });
+    child.on('error', () => {
+      cachedGlobalFfmpeg = false;
+      resolve(false);
+    });
+  });
+};
+
+
 const getExecutablePath = async () => {
   const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
   if (isDev) {
@@ -65,7 +83,15 @@ export const bootstrapYtDlp = async (onLog) => {
         await fs.access(ffmpegPath);
         onLog(`[bootstrap] ffmpeg already exists at ${ffmpegPath}`);
       } catch {
+        // Check if available globally before downloading
+        const isGlobal = await isFfmpegAvailableGlobal();
+        if (isGlobal) {
+          onLog('[bootstrap] ffmpeg is available globally. Skipping internal download.');
+          return true;
+        }
+
         onLog('[bootstrap] ffmpeg missing. Starting automatic download (this may take a while)...');
+
         // Use PowerShell script to download and unzip
         const zipUrl = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip";
         const tempZip = path.join(binDir, 'ffmpeg.zip');
@@ -296,8 +322,14 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
     url,
     '--output', outputPathTemplate,
     '--newline',
-    '--ffmpeg-location', getBinDir(),
   ];
+
+  // Try to use global ffmpeg first, fallback to internal if not found
+  const isGlobal = await isFfmpegAvailableGlobal();
+  if (!isGlobal) {
+    args.push('--ffmpeg-location', getBinDir());
+  }
+
 
   if (noPlaylist) {
     args.push('--no-playlist');
