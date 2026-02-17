@@ -276,6 +276,12 @@ const App: React.FC = () => {
   }, [history]);
 
   const addToQueue = (itemData: Omit<DownloadItem, 'id' | 'status' | 'progress' | 'logs' | 'timestamp'>) => {
+    const isDuplicate = queue.some(i => i.url === itemData.url) || history.some(i => i.url === itemData.url);
+    if (isDuplicate && viewMode !== 'SINGLE') {
+      console.log('Skipping duplicate URL:', itemData.url);
+      return;
+    }
+
     const newItem: DownloadItem = {
       ...itemData,
       id: uuidv4(),
@@ -293,7 +299,10 @@ const App: React.FC = () => {
   };
 
   const addMultipleToQueue = (itemsData: Omit<DownloadItem, 'id' | 'status' | 'progress' | 'logs' | 'timestamp'>[]) => {
-    const newItems: DownloadItem[] = itemsData.map(itemData => ({
+    const existingUrls = new Set([...queue.map(i => i.url), ...history.map(i => i.url)]);
+    const uniqueNewItemsSelection = itemsData.filter(item => !existingUrls.has(item.url));
+
+    const newItems: DownloadItem[] = uniqueNewItemsSelection.map(itemData => ({
       ...itemData,
       id: uuidv4(),
       status: DownloadStatus.PENDING,
