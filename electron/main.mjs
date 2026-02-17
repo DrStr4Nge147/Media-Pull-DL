@@ -246,22 +246,30 @@ const checkForAppUpdates = async (win) => {
     const cleanCurrent = currentVersion.toString().replace(/^v/i, '').trim();
 
     if (cleanCurrent !== cleanLatest) {
-      // Robust check for portable build
       const isPortable = !!(
         process.env.PORTABLE_EXECUTABLE_PATH ||
         process.env.PORTABLE_EXECUTABLE_DIR ||
         app.getPath('exe').toLowerCase().includes('portable')
       );
 
-      console.log(`[App Update] Update available: ${cleanCurrent} -> ${cleanLatest} (Portable: ${isPortable})`);
+      const exePath = app.getPath('exe').toLowerCase();
+      const isInstalled = exePath.includes('appdata') || exePath.includes('program files');
+      const isZip = !isInstalled && !isPortable;
+
+      console.log(`[App Update] Update available: ${cleanCurrent} -> ${cleanLatest} (Portable: ${isPortable}, Zip: ${isZip})`);
 
       win.webContents.send('app-update-available', {
         current: currentVersion,
         latest: latestVersion,
         url: data.url,
-        downloadUrl: data.downloadUrl,
-        assetName: data.assetName,
-        isPortable: isPortable
+        downloadUrl: isPortable
+          ? (data.portableDownloadUrl || data.downloadUrl)
+          : (isZip ? (data.zipDownloadUrl || data.downloadUrl) : data.downloadUrl),
+        assetName: isPortable
+          ? (data.portableAssetName || data.assetName)
+          : (isZip ? (data.zipAssetName || data.assetName) : data.assetName),
+        isPortable: isPortable,
+        isZip: isZip
       });
     } else {
       console.log(`[App Update] App is up to date: ${cleanCurrent}`);
