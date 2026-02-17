@@ -376,8 +376,38 @@ ipcMain.handle('quit-and-install', async (_event, filePath) => {
   app.quit();
 });
 
+const cleanupTempInstallers = async () => {
+  try {
+    const tempDir = app.getPath('temp');
+    const files = await fs.readdir(tempDir);
+    // Matches patterns like Media-Pull.DL.Setup.v0.4.2.exe, Media-Pull.DL.v0.4.2.zip, etc.
+    const installerPattern = /^Media-Pull\.DL\.(Setup\.|Portable\.)?v.*\.(exe|zip)$/i;
+
+    console.log('[Cleanup] Checking for old installers in:', tempDir);
+
+    for (const file of files) {
+      if (installerPattern.test(file)) {
+        const filePath = path.join(tempDir, file);
+        try {
+          // Attempt to delete. This will fail if the file is currently in use (e.g., installer running)
+          await fs.unlink(filePath);
+          console.log(`[Cleanup] Deleted old installer: ${file}`);
+        } catch (err) {
+          // It's likely in use or already deleted, just skip
+          console.log(`[Cleanup] Skipping ${file}: ${err.message}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[Cleanup] Error during temp cleanup:', error);
+  }
+};
+
 app.whenReady().then(() => {
   createWindow();
+
+  // Cleanup old installers on startup
+  cleanupTempInstallers();
 
   // Bootstrap yt-dlp and ffmpeg in the background to avoid blocking startup
   console.log('[System] Bootstrapping dependencies in background...');
