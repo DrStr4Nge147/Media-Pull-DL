@@ -296,6 +296,7 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
     url,
     '--output', outputPathTemplate,
     '--newline',
+    '--ffmpeg-location', getBinDir(),
   ];
 
   if (noPlaylist) {

@@ -11,7 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron ./electron/main.mjs",
-    "build:electron": "vite build && electron-builder && node electron/zip-build.js"
+    "build:electron": "vite build && electron-builder"
   },
   "build": {
     "appId": "com.mediapull.dl",
@@ -27,10 +27,20 @@
     ],
     "win": {
       "target": [
-        "portable"
+        "portable",
+        "nsis",
+        "zip"
       ],
       "icon": "public/logo.png",
       "artifactName": "Media-Pull.DL.v${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Media-Pull.DL.Setup.v${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Media-Pull.DL.Portable.v${version}.${ext}"
     },
     "extraResources": [
       {

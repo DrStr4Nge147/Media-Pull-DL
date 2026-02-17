@@ -312,12 +312,63 @@ ipcMain.handle('get-app-version', () => {
   return appVersion;
 });
 
-app.whenReady().then(async () => {
-  // Bootstrap yt-dlp and ffmpeg in the background
-  console.log('[System] Bootstrapping dependencies...');
-  await bootstrapYtDlp((log) => console.log(log)).catch(console.error);
+ipcMain.handle('download-app-update', async (event, { url, fileName }) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const tempPath = path.join(app.getPath('temp'), fileName);
 
-  await createWindow();
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to download: ${response.statusText}`);
+
+    const totalBytes = Number.parseInt(response.headers.get('content-length') || '0', 10);
+    let downloadedBytes = 0;
+
+    const fileStream = (await import('node:fs')).createWriteStream(tempPath);
+    const reader = response.body.getReader();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      fileStream.write(value);
+      downloadedBytes += value.length;
+
+      if (totalBytes > 0) {
+        const progress = (downloadedBytes / totalBytes) * 100;
+        win.webContents.send('app-update-progress', progress);
+      }
+    }
+
+    fileStream.end();
+    return { success: true, path: tempPath };
+  } catch (error) {
+    console.error('App download failed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('quit-and-install', async (_event, filePath) => {
+  const { spawn } = await import('node:child_process');
+
+  // If it's an .exe, try to run it. If it's NSIS, it handles the rest.
+  // We use /S for silent if possible, but let's just run it so user sees the installer.
+  // However, for "overwrite from within", usually we just run it and quit.
+  spawn(filePath, {
+    detached: true,
+    stdio: 'ignore'
+  }).unref();
+
+  app.quit();
+});
+
+app.whenReady().then(() => {
+  createWindow();
+
+  // Bootstrap yt-dlp and ffmpeg in the background to avoid blocking startup
+  console.log('[System] Bootstrapping dependencies in background...');
+  bootstrapYtDlp((log) => console.log(log)).catch(err => {
+    console.error('[System] Bootstrap failed:', err);
+  });
 });
 
 app.on('activate', async () => {

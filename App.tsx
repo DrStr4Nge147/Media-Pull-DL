@@ -47,6 +47,10 @@ const App: React.FC = () => {
   const [appUpdateInfo, setAppUpdateInfo] = useState<{ current: string; latest: string; url: string; downloadUrl?: string; assetName?: string; isPortable?: boolean } | null>(null);
   const [showAppUpdateModal, setShowAppUpdateModal] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [appUpdateProgress, setAppUpdateProgress] = useState<number | null>(null);
+  const [appDownloadedPath, setAppDownloadedPath] = useState<string | null>(null);
+  const [isDownloadingApp, setIsDownloadingApp] = useState(false);
+  const [appDownloadError, setAppDownloadError] = useState<string | null>(null);
 
   // Update detection
   useEffect(() => {
@@ -119,6 +123,12 @@ const App: React.FC = () => {
       });
     }
 
+    if (typeof w.onAppUpdateProgress === 'function') {
+      w.onAppUpdateProgress((progress: number) => {
+        setAppUpdateProgress(progress);
+      });
+    }
+
 
     return () => {
       if (typeof w.removeUpdateListeners === 'function') w.removeUpdateListeners();
@@ -159,18 +169,51 @@ const App: React.FC = () => {
   };
 
   const handleInstallAppUpdate = async () => {
-    const urlToOpen = appUpdateInfo?.downloadUrl || appUpdateInfo?.url;
-    if (!urlToOpen) return;
-
-    const w = window as any;
-    if (typeof w.openExternal === 'function') {
-      w.openExternal(urlToOpen);
-    } else {
-      window.open(urlToOpen, '_blank');
+    if (appDownloadedPath) {
+      const w = window as any;
+      if (typeof w.quitAndInstall === 'function') {
+        w.quitAndInstall(appDownloadedPath);
+      }
+      return;
     }
 
-    // Auto-close modal after redirecting
-    setShowAppUpdateModal(false);
+    const downloadUrl = appUpdateInfo?.downloadUrl;
+    const assetName = appUpdateInfo?.assetName || 'Media-Pull-DL-Update.exe';
+
+    if (!downloadUrl) {
+      const urlToOpen = appUpdateInfo?.url;
+      const w = window as any;
+      if (urlToOpen) {
+        if (typeof w.openExternal === 'function') {
+          w.openExternal(urlToOpen);
+        } else {
+          window.open(urlToOpen, '_blank');
+        }
+      }
+      setShowAppUpdateModal(false);
+      return;
+    }
+
+    setIsDownloadingApp(true);
+    setAppDownloadError(null);
+    setAppUpdateProgress(0);
+
+    const w = window as any;
+    try {
+      if (typeof w.downloadAppUpdate === 'function') {
+        const result = await w.downloadAppUpdate(downloadUrl, assetName);
+        if (result.success) {
+          setAppDownloadedPath(result.path);
+        } else {
+          setAppDownloadError(result.error);
+        }
+      }
+    } catch (e) {
+      setAppDownloadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsDownloadingApp(false);
+      setAppUpdateProgress(null);
+    }
   };
 
   const openDownloadFolder = useCallback(async () => {
@@ -364,7 +407,10 @@ const App: React.FC = () => {
       throw new Error('yt-dlp runner not available (not running in Electron?)');
     }
 
-    await w.runYtDlp({ ...item, id: item.id });
+    const success = await w.runYtDlp({ ...item, id: item.id });
+    if (!success) {
+      throw new Error('Download process failed. Check the terminal for details.');
+    }
   };
 
   const updateItemStatus = (id: string, status: DownloadStatus) => {
@@ -495,20 +541,61 @@ const App: React.FC = () => {
 
               </div>
 
+              {isDownloadingApp && (
+                <div className="mb-6 animate-fadeIn">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">Downloading...</span>
+                    <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">{Math.round(appUpdateProgress || 0)}%</span>
+                  </div>
+                  <div className="h-3 w-full bg-slate-100 dark:bg-slate-950 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 p-0.5">
+                    <div
+                      className="h-full bg-gradient-to-r from-purple-600 to-pink-600 rounded-full transition-all duration-300 shadow-sm shadow-purple-500/50"
+                      style={{ width: `${appUpdateProgress || 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {appDownloadError && (
+                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-xs font-bold flex items-center gap-3 animate-fadeIn">
+                  <i className="fa-solid fa-circle-exclamation text-lg"></i>
+                  <span className="text-left">{appDownloadError}</span>
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <button
+                  disabled={isDownloadingApp}
                   onClick={() => setShowAppUpdateModal(false)}
-                  className="flex-1 px-6 py-3 rounded-xl font-bold transition-all bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300"
+                  className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${isDownloadingApp ? 'opacity-50 cursor-not-allowed' : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300'}`}
                 >
                   <i className="fa-solid fa-clock mr-2"></i>
                   Later
                 </button>
                 <button
+                  disabled={isDownloadingApp}
                   onClick={handleInstallAppUpdate}
-                  className="flex-1 px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all shadow-lg shadow-purple-900/40 active:scale-95 flex items-center justify-center gap-2"
+                  className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 ${appDownloadedPath
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/40'
+                    : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-purple-900/40'
+                    } ${isDownloadingApp ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
-                  <i className="fa-solid fa-up-right-from-square"></i>
-                  Download Now
+                  {isDownloadingApp ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin"></i>
+                      Downloading...
+                    </>
+                  ) : appDownloadedPath ? (
+                    <>
+                      <i className="fa-solid fa-circle-check"></i>
+                      Install & Restart
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-cloud-arrow-down"></i>
+                      Update Now
+                    </>
+                  )}
                 </button>
               </div>
             </div>

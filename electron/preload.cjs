@@ -102,3 +102,15 @@ contextBridge.exposeInMainWorld('sendNotification', (title, body) => {
 contextBridge.exposeInMainWorld('getAppVersion', () => {
   return ipcRenderer.invoke('get-app-version');
 });
+
+contextBridge.exposeInMainWorld('downloadAppUpdate', (url, fileName) => {
+  return ipcRenderer.invoke('download-app-update', { url, fileName });
+});
+
+contextBridge.exposeInMainWorld('quitAndInstall', (filePath) => {
+  return ipcRenderer.invoke('quit-and-install', filePath);
+});
+
+contextBridge.exposeInMainWorld('onAppUpdateProgress', (callback) => {
+  ipcRenderer.on('app-update-progress', (_, progress) => callback(progress));
+});
