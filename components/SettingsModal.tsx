@@ -108,6 +108,7 @@ const SettingsModal: React.FC<Props> = ({ settings, onSave, onClose }) => {
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 ml-1">Default Path</label>
                 <input
                   type="text"
+                  placeholder="./Media-Pull DL"
                   value={localSettings.defaultDestination}
                   onChange={e => setLocalSettings(prev => ({ ...prev, defaultDestination: e.target.value }))}
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 dark:text-white transition-all shadow-inner"
@@ -117,6 +118,7 @@ const SettingsModal: React.FC<Props> = ({ settings, onSave, onClose }) => {
                 <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 ml-1">Filename Format</label>
                 <input
                   type="text"
+                  placeholder="%(title)s.%(ext)s"
                   value={localSettings.defaultFilenameFormat}
                   onChange={e => setLocalSettings(prev => ({ ...prev, defaultFilenameFormat: e.target.value }))}
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 dark:text-white transition-all shadow-inner"
@@ -127,6 +129,7 @@ const SettingsModal: React.FC<Props> = ({ settings, onSave, onClose }) => {
               <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 ml-1">Base Arguments</label>
               <input
                 type="text"
+                placeholder="--format mp4/best"
                 value={localSettings.defaultArgs}
                 onChange={e => setLocalSettings(prev => ({ ...prev, defaultArgs: e.target.value }))}
                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 dark:text-white transition-all shadow-inner"

@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 
 const DEFAULT_SETTINGS: AppSettings = {
-  defaultDestination: './YT-DLP',
+  defaultDestination: './Media-Pull DL',
   defaultFilenameFormat: '%(title)s.%(ext)s',
   defaultArgs: '--format mp4/best',
   presets: [
@@ -30,7 +30,21 @@ const App: React.FC = () => {
   const [downloadStrategy, setDownloadStrategy] = useState<DownloadStrategy>('SEQUENTIAL');
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('yt_dlp_settings');
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Migration: Update default destination from old './YT-DLP' to new './Media-Pull DL'
+        if (parsed.defaultDestination === './YT-DLP') {
+          parsed.defaultDestination = './Media-Pull DL';
+          localStorage.setItem('yt_dlp_settings', JSON.stringify(parsed));
+        }
+        return parsed;
+      } catch (e) {
+        console.error('Failed to parse settings:', e);
+        return DEFAULT_SETTINGS;
+      }
+    }
+    return DEFAULT_SETTINGS;
   });
   const [showSettings, setShowSettings] = useState(false);
   const [sharedDestination, setSharedDestination] = useState(settings.defaultDestination);
