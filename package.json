@@ -7,10 +7,11 @@
   "author": "Media-Pull DL",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"wait-on http://localhost:3000 && cross-env VITE_DEV_SERVER_URL=http://localhost:3000 electron ./electron/main.mjs\"",
+    "dev": "vite",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env VITE_DEV_SERVER_URL=http://localhost:3000 electron .\"",
     "build": "vite build",
     "preview": "vite preview",
-    "electron": "electron ./electron/main.mjs",
+    "electron": "electron .",
     "build:electron": "vite build && electron-builder"
   },
   "build": {

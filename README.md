@@ -49,6 +49,12 @@ Choose the look that suits you best. Media-Pull DL ahora includes both **Light**
 
 Run the application in development mode with live reloading:
 
+**Full Desktop App (Electron):**
+```bash
+npm run electron:dev
+```
+
+**Web Interface Only:**
 ```bash
 npm run dev
 ```
