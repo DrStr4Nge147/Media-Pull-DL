@@ -114,3 +114,10 @@ contextBridge.exposeInMainWorld('quitAndInstall', (filePath) => {
 contextBridge.exposeInMainWorld('onAppUpdateProgress', (callback) => {
   ipcRenderer.on('app-update-progress', (_, progress) => callback(progress));
 });
+
+contextBridge.exposeInMainWorld('windowControls', {
+  minimize: () => ipcRenderer.invoke('window-minimize'),
+  maximize: () => ipcRenderer.invoke('window-maximize'),
+  close: () => ipcRenderer.invoke('window-close'),
+  onMaximizedStatus: (callback) => ipcRenderer.on('window-maximized-status', (_, isMaximized) => callback(isMaximized))
+});

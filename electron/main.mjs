@@ -57,6 +57,33 @@ const createWindow = async () => {
       contextIsolation: true,
       nodeIntegration: false,
     },
+    frame: false,
+    titleBarStyle: 'hidden',
+    // On Windows, this allows the content to extend into the title bar area
+  });
+
+  ipcMain.handle('window-minimize', () => {
+    win.minimize();
+  });
+
+  ipcMain.handle('window-maximize', () => {
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  });
+
+  ipcMain.handle('window-close', () => {
+    win.close();
+  });
+
+  win.on('maximize', () => {
+    win.webContents.send('window-maximized-status', true);
+  });
+
+  win.on('unmaximize', () => {
+    win.webContents.send('window-maximized-status', false);
   });
 
   if (isDev) {
