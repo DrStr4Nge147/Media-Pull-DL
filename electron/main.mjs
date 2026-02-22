@@ -336,20 +336,62 @@ const checkForUpdates = async (win) => {
 };
 
 const checkForAppUpdates = async (win) => {
+  const tryGetLatestAppVersion = async () => {
+    // Method 1: Raw JSON from repo (Bypasses API rate limits)
+    try {
+      console.log('[App Update] Fetching version metadata from repo...');
+      const response = await fetch('https://raw.githubusercontent.com/DrStr4Nge147/Media-Pull-DL/main/version.json');
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (e) {
+      console.error('[App Update] JSON fetch failed:', e.message);
+    }
+
+    // Method 2: Redirect URL parsing (Fallback, bypasses API quota)
+    try {
+      console.log('[App Update] Falling back to release-page scraping...');
+      const response = await fetch('https://github.com/DrStr4Nge147/Media-Pull-DL/releases/latest', {
+        method: 'HEAD',
+        redirect: 'follow'
+      });
+
+      const finalUrl = response.url;
+      const match = finalUrl.match(/\/tag\/([^/]+)$/);
+      if (match && match[1]) {
+        const latestTag = match[1].replace(/^v/i, '').trim();
+        console.log('[App Update] Version extracted from redirect URL:', latestTag);
+
+        // Build a mock data object based on the extracted tag
+        return {
+          version: latestTag,
+          url: "https://github.com/DrStr4Nge147/Media-Pull-DL/releases/latest",
+          downloadUrl: `https://github.com/DrStr4Nge147/Media-Pull-DL/releases/download/v${latestTag}/Media-Pull.DL.Setup.v${latestTag}.exe`,
+          assetName: `Media-Pull.DL.Setup.v${latestTag}.exe`,
+          portableDownloadUrl: `https://github.com/DrStr4Nge147/Media-Pull-DL/releases/download/v${latestTag}/Media-Pull.DL.Portable.v${latestTag}.exe`,
+          portableAssetName: `Media-Pull.DL.Portable.v${latestTag}.exe`,
+          zipDownloadUrl: `https://github.com/DrStr4Nge147/Media-Pull-DL/releases/download/v${latestTag}/Media-Pull.DL.v${latestTag}.zip`,
+          zipAssetName: `Media-Pull.DL.v${latestTag}.zip`
+        };
+      }
+    } catch (e) {
+      console.error('[App Update] Release-page check failed:', e.message);
+    }
+
+    return null;
+  };
+
   try {
     const currentVersion = appVersion;
-    // Use raw content to bypass API rate limits
-    const response = await fetch('https://raw.githubusercontent.com/DrStr4Nge147/Media-Pull-DL/main/version.json');
+    const data = await tryGetLatestAppVersion();
 
-    if (!response.ok) throw new Error(`Fetch Error: ${response.statusText}`);
-
-    const data = await response.json();
-    const latestVersion = data.version;
-
-    if (!currentVersion || !latestVersion) {
-      console.log('[App Update] Could not determine versions, skipping check.');
+    if (!data || !data.version) {
+      console.log('[App Update] All version check methods failed.');
       return;
     }
+
+    const latestVersion = data.version;
 
     const cleanLatest = latestVersion.toString().replace(/^v/i, '').trim();
     const cleanCurrent = currentVersion.toString().replace(/^v/i, '').trim();
