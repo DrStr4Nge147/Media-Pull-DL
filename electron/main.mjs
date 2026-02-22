@@ -335,6 +335,21 @@ const checkForUpdates = async (win) => {
   }
 };
 
+const getAppDistInfo = () => {
+  const portablePath = process.env.PORTABLE_EXECUTABLE_PATH;
+  const isPortable = !!(
+    portablePath ||
+    process.env.PORTABLE_EXECUTABLE_DIR ||
+    app.getPath('exe').toLowerCase().includes('portable')
+  );
+
+  const exePath = app.getPath('exe').toLowerCase();
+  const isInstalled = exePath.includes('appdata') || exePath.includes('program files');
+  const isZip = !isInstalled && !isPortable;
+
+  return { isPortable, isZip, isInstalled, portablePath, exePath };
+};
+
 const checkForAppUpdates = async (win) => {
   const tryGetLatestAppVersion = async () => {
     // Method 1: Raw JSON from repo (Bypasses API rate limits)
@@ -397,15 +412,7 @@ const checkForAppUpdates = async (win) => {
     const cleanCurrent = currentVersion.toString().replace(/^v/i, '').trim();
 
     if (cleanCurrent !== cleanLatest) {
-      const isPortable = !!(
-        process.env.PORTABLE_EXECUTABLE_PATH ||
-        process.env.PORTABLE_EXECUTABLE_DIR ||
-        app.getPath('exe').toLowerCase().includes('portable')
-      );
-
-      const exePath = app.getPath('exe').toLowerCase();
-      const isInstalled = exePath.includes('appdata') || exePath.includes('program files');
-      const isZip = !isInstalled && !isPortable;
+      const { isPortable, isZip } = getAppDistInfo();
 
       console.log(`[App Update] Update available: ${cleanCurrent} -> ${cleanLatest} (Portable: ${isPortable}, Zip: ${isZip})`);
 
@@ -483,7 +490,21 @@ ipcMain.handle('get-app-version', () => {
 
 ipcMain.handle('download-app-update', async (event, { url, fileName }) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  const tempPath = path.join(app.getPath('temp'), fileName);
+
+  const { isPortable, portablePath } = getAppDistInfo();
+
+  // Set download path based on mode
+  let downloadPath;
+  if (isPortable) {
+    // For portable mode, download to the same directory as the current portable exe
+    const currentExeDir = portablePath ? path.dirname(portablePath) : path.dirname(app.getPath('exe'));
+    downloadPath = path.join(currentExeDir, fileName);
+    console.log(`[App Update] Portable mode detected. Downloading to: ${downloadPath}`);
+  } else {
+    // For zip or installed mode, download to temp
+    downloadPath = path.join(app.getPath('temp'), fileName);
+    console.log(`[App Update] Standard/Zip mode detected. Downloading to temp: ${downloadPath}`);
+  }
 
   try {
     const response = await fetch(url);
@@ -492,7 +513,7 @@ ipcMain.handle('download-app-update', async (event, { url, fileName }) => {
     const totalBytes = Number.parseInt(response.headers.get('content-length') || '0', 10);
     let downloadedBytes = 0;
 
-    const fileStream = (await import('node:fs')).createWriteStream(tempPath);
+    const fileStream = (await import('node:fs')).createWriteStream(downloadPath);
     const reader = response.body.getReader();
 
     while (true) {
@@ -509,7 +530,7 @@ ipcMain.handle('download-app-update', async (event, { url, fileName }) => {
     }
 
     fileStream.end();
-    return { success: true, path: tempPath };
+    return { success: true, path: downloadPath };
   } catch (error) {
     console.error('App download failed:', error);
     return { success: false, error: error.message };
@@ -541,10 +562,46 @@ ipcMain.handle('factory-reset', async () => {
 
 ipcMain.handle('quit-and-install', async (_event, filePath) => {
   const { spawn } = await import('node:child_process');
+  const isZip = filePath.toLowerCase().endsWith('.zip');
+
+  if (isZip) {
+    console.log(`[App Update] Zip update detected. Preparing extraction for ${filePath}...`);
+    const { portablePath } = getAppDistInfo();
+    const currentExe = portablePath || app.getPath('exe');
+    const targetDir = path.dirname(currentExe);
+    const tempBatchPath = path.join(app.getPath('temp'), 'update-mediapull.bat');
+
+    // Create a batch script to handle extraction after the app closes
+    const batchContent = `
+@echo off
+setlocal
+echo Waiting for application to exit...
+taskkill /f /pid ${process.pid} >nul 2>&1
+timeout /t 2 /nobreak >nul
+
+echo Extracting updates to ${targetDir}...
+powershell -NoProfile -Command "Expand-Archive -Path '${filePath.replace(/'/g, "''")}' -DestinationPath '${targetDir.replace(/'/g, "''")}' -Force"
+
+echo Starting application...
+start "" "${currentExe}"
+
+echo Cleaning up...
+del "${filePath}"
+(goto) 2>nul & del "%~f0"
+    `.trim();
+
+    await fs.writeFile(tempBatchPath, batchContent);
+
+    spawn('cmd.exe', ['/c', tempBatchPath], {
+      detached: true,
+      stdio: 'ignore'
+    }).unref();
+
+    app.quit();
+    return;
+  }
 
   // If it's an .exe, try to run it. If it's NSIS, it handles the rest.
-  // We use /S for silent if possible, but let's just run it so user sees the installer.
-  // However, for "overwrite from within", usually we just run it and quit.
   spawn(filePath, {
     detached: true,
     stdio: 'ignore'
