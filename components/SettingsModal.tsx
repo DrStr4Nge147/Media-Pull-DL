@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppSettings, Preset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import ConfirmationModal from './ConfirmationModal';
 
 interface Props {
   settings: AppSettings;
@@ -40,6 +41,20 @@ const SettingsModal: React.FC<Props> = ({ settings, onSave, onClose }) => {
     onClose();
   };
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const handleFactoryReset = () => {
+    const w = window as any;
+    w.factoryReset().then((res: any) => {
+      if (res.success) {
+        localStorage.clear();
+        window.location.reload();
+      } else {
+        alert(`Reset failed: ${res.error}`);
+      }
+    });
+  };
+
   const addPreset = () => {
     if (!newPresetName || !newPresetArgs) return;
     const newPreset: Preset = {
@@ -63,7 +78,10 @@ const SettingsModal: React.FC<Props> = ({ settings, onSave, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/40 dark:bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-colors">
+    <div
+      className="fixed inset-0 bg-slate-950/40 dark:bg-slate-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 transition-colors"
+      style={{ WebkitAppRegion: 'no-drag' } as any}
+    >
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl w-full max-w-2xl shadow-2xl animate-fadeIn">
         <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">App Settings & Presets</h2>
@@ -96,6 +114,42 @@ const SettingsModal: React.FC<Props> = ({ settings, onSave, onClose }) => {
                 >
                   <i className="fa-solid fa-moon text-sm"></i>
                   Dark
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">System & Updates</h3>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <div>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">Auto-update Core Engine</p>
+                  <p className="text-xs text-slate-500">Keep yt-dlp up to date automatically in the background</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLocalSettings(prev => ({ ...prev, autoUpdateCore: !prev.autoUpdateCore }))}
+                  className={`group relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none ${localSettings.autoUpdateCore ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 shadow-sm ${localSettings.autoUpdateCore ? 'translate-x-6' : 'translate-x-1'}`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between bg-red-500/5 p-4 rounded-2xl border border-red-500/10">
+                <div>
+                  <p className="text-sm font-bold text-red-600 dark:text-red-400">Factory Reset</p>
+                  <p className="text-xs text-slate-500">Clear cache and restart app to a fresh state</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirm(true)}
+                  className="px-4 py-2 bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white border border-red-600/20 rounded-xl text-xs font-bold transition-all active:scale-95"
+                >
+                  <i className="fa-solid fa-trash-can mr-2"></i>
+                  Reset App
                 </button>
               </div>
             </div>
@@ -209,6 +263,17 @@ const SettingsModal: React.FC<Props> = ({ settings, onSave, onClose }) => {
           </button>
         </div>
       </div>
+
+      {showResetConfirm && (
+        <ConfirmationModal
+          title="Factory Reset"
+          message="Are you absolutely sure? This will clear all settings, download history, and temporary junk files. The app will then reload."
+          confirmLabel="Reset Everything"
+          onConfirm={handleFactoryReset}
+          onCancel={() => setShowResetConfirm(false)}
+          type="danger"
+        />
+      )}
     </div>
   );
 };

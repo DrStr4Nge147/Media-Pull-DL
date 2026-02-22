@@ -77,6 +77,14 @@ contextBridge.exposeInMainWorld('onYtDlpUpdateLog', (callback) => {
   ipcRenderer.on('yt-dlp-update-log', (_, log) => callback(log));
 });
 
+contextBridge.exposeInMainWorld('onYtDlpUpdateError', (callback) => {
+  ipcRenderer.on('yt-dlp-update-error', (_, error) => callback(error));
+});
+
+contextBridge.exposeInMainWorld('onYtDlpUpdateProgress', (callback) => {
+  ipcRenderer.on('yt-dlp-update-progress', (_, progress) => callback(progress));
+});
+
 contextBridge.exposeInMainWorld('removeUpdateListeners', () => {
   ipcRenderer.removeAllListeners('yt-dlp-update-available');
   ipcRenderer.removeAllListeners('yt-dlp-up-to-date');
@@ -113,6 +121,10 @@ contextBridge.exposeInMainWorld('quitAndInstall', (filePath) => {
 
 contextBridge.exposeInMainWorld('onAppUpdateProgress', (callback) => {
   ipcRenderer.on('app-update-progress', (_, progress) => callback(progress));
+});
+
+contextBridge.exposeInMainWorld('factoryReset', () => {
+  return ipcRenderer.invoke('factory-reset');
 });
 
 contextBridge.exposeInMainWorld('windowControls', {

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, session } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
@@ -79,7 +79,7 @@ const createWindow = async () => {
 
   win.webContents.once('did-finish-load', () => {
     console.log('[System] Content finished loading');
-    checkForUpdates(win);
+    // Version checks are now handled by App.tsx on mount or via IPC
     setTimeout(() => checkForAppUpdates(win), 2000);
   });
 
@@ -94,6 +94,7 @@ const createWindow = async () => {
   }
 
   win.focus();
+  return win;
 };
 
 ipcMain.handle('window-minimize', (event) => {
@@ -246,31 +247,91 @@ ipcMain.handle('stop-download', async (_event, id) => {
   return false;
 });
 
+let lastYtDlpCheck = 0;
+const CHECK_COOLDOWN = 10 * 60 * 1000; // 10 minutes
+
 const checkForUpdates = async (win) => {
+  const now = Date.now();
+  if (now - lastYtDlpCheck < CHECK_COOLDOWN) {
+    console.log('[yt-dlp] Check cooldown active, skipping update check.');
+    return;
+  }
+  lastYtDlpCheck = now;
+
+  const tryGetLatestVersion = async () => {
+    // Method 1: GitHub API (fast, but rate-limited)
+    try {
+      console.log('[yt-dlp] Attempting version check via GitHub API...');
+      const response = await fetch('https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest', {
+        headers: { 'User-Agent': 'Media-Pull-DL' }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.tag_name;
+      }
+      if (response.status === 403) {
+        console.warn('[yt-dlp] GitHub API Rate Limit exceeded.');
+      }
+    } catch (e) {
+      console.error('[yt-dlp] API check failed:', e.message);
+    }
+
+    // Method 2: Redirect URL parsing (Fallback, bypasses API quota)
+    try {
+      console.log('[yt-dlp] Falling back to redirect URL version check...');
+      // By using a standard fetch on the latest release URL, we can see where it redirects
+      const response = await fetch('https://github.com/yt-dlp/yt-dlp/releases/latest', {
+        method: 'HEAD', // HEAD is enough to get the redirect URL
+        redirect: 'follow'
+      });
+
+      const finalUrl = response.url;
+      // URL format: https://github.com/yt-dlp/yt-dlp/releases/tag/2026.02.21
+      const match = finalUrl.match(/\/tag\/([^/]+)$/);
+      if (match && match[1]) {
+        console.log('[yt-dlp] Version extracted from redirect URL:', match[1]);
+        return match[1];
+      }
+    } catch (e) {
+      console.error('[yt-dlp] Mirror/Redirect check failed:', e.message);
+    }
+
+    return null;
+  };
+
   try {
     const currentVersion = await getYtDlpVersion();
-    const response = await fetch('https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest');
-    if (!response.ok) throw new Error(`GitHub API Error: ${response.statusText}`);
+    const latestVersion = await tryGetLatestVersion();
 
-    const data = await response.json();
-    const latestVersion = data.tag_name;
+    if (!latestVersion) {
+      throw new Error('All version check methods failed (Rate limit or Connection issue)');
+    }
 
-    if (!currentVersion || !latestVersion) {
-      console.log('[yt-dlp] Could not determine versions, skipping check.');
+    console.log(`[yt-dlp] Check Results: Local=${currentVersion}, Latest=${latestVersion}`);
+
+    if (!currentVersion) {
+      console.log('[yt-dlp] Could not determine local version, skipping check.');
       return;
     }
 
     // Clean up version strings (remove 'v' prefix and trim)
-    const cleanCurrent = currentVersion.trim().replace(/^v/i, '');
-    const cleanLatest = latestVersion.trim().replace(/^v/i, '');
+    const cleanCurrent = currentVersion.toString().trim().replace(/^v/i, '');
+    const cleanLatest = latestVersion.toString().trim().replace(/^v/i, '');
 
     if (cleanCurrent !== cleanLatest) {
+      console.log(`[yt-dlp] Update available: ${cleanCurrent} -> ${cleanLatest}`);
       win.webContents.send('yt-dlp-update-available', { current: currentVersion, latest: latestVersion });
     } else {
+      console.log('[yt-dlp] Core is already up to date.');
       win.webContents.send('yt-dlp-up-to-date', currentVersion);
     }
   } catch (error) {
-    console.error('Failed to check for yt-dlp updates:', error);
+    console.error('[yt-dlp] Core update check failed:', error);
+    if (error.message.toLowerCase().includes('rate limit')) {
+      win.webContents.send('yt-dlp-update-error', 'GitHub API rate limit exceeded. Mirror check also failed.');
+    } else {
+      win.webContents.send('yt-dlp-update-error', `Update check failed: ${error.message}`);
+    }
   }
 };
 
@@ -363,7 +424,10 @@ ipcMain.handle('check-app-update', async (event) => {
 ipcMain.handle('update-yt-dlp', async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   try {
-    await updateYtDlp((log) => win.webContents.send('yt-dlp-update-log', log));
+    await updateYtDlp(
+      (log) => win.webContents.send('yt-dlp-update-log', log),
+      (progress) => win.webContents.send('yt-dlp-update-progress', progress)
+    );
     const newVersion = await getYtDlpVersion();
     return { success: true, version: newVersion };
   } catch (error) {
@@ -410,6 +474,29 @@ ipcMain.handle('download-app-update', async (event, { url, fileName }) => {
   }
 });
 
+ipcMain.handle('factory-reset', async () => {
+  try {
+    // 1. Cleanup temp installers and updater folders
+    await cleanupTempInstallers();
+    const updaterPath = path.join(app.getPath('userData'), '..', 'mediapull-dl-updater');
+    await fs.rm(updaterPath, { recursive: true, force: true }).catch(() => { });
+
+    // 2. Clear app session/cache data to free up space
+    const ses = session.defaultSession;
+    await ses.clearCache();
+    await ses.clearStorageData({
+      storages: ['appcache', 'cookies', 'filesystem', 'indexdb', 'localstorage', 'shadercache', 'websql', 'serviceworkers', 'cachestorage']
+    });
+
+    // 3. Optional: We could clear app cache here, but it might crash the current process.
+    // Instead, we'll return success and let the renderer clear localStorage and reload.
+    return { success: true };
+  } catch (error) {
+    console.error('Factory reset failed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('quit-and-install', async (_event, filePath) => {
   const { spawn } = await import('node:child_process');
 
@@ -427,33 +514,63 @@ ipcMain.handle('quit-and-install', async (_event, filePath) => {
 const cleanupTempInstallers = async () => {
   try {
     const tempDir = app.getPath('temp');
-    const files = await fs.readdir(tempDir);
-    // Matches patterns like Media-Pull.DL.Setup.v0.4.2.exe, Media-Pull.DL.v0.4.2.zip, etc.
-    const installerPattern = /^Media-Pull\.DL\.(Setup\.|Portable\.)?v.*\.(exe|zip)$/i;
+    const updaterDir = path.join(app.getPath('userData'), '..', 'mediapull-dl-updater');
 
-    console.log('[Cleanup] Checking for old installers in:', tempDir);
+    // Patterns for installers
+    const installerPattern = /^Media-Pull\.DL\.(Setup\.|Portable\.)?v(.*?)\.(exe|zip)$/i;
+    const genericInstallerName = 'installer.exe';
 
-    for (const file of files) {
-      if (installerPattern.test(file)) {
-        const filePath = path.join(tempDir, file);
-        try {
-          // Attempt to delete. This will fail if the file is currently in use (e.g., installer running)
-          await fs.unlink(filePath);
-          console.log(`[Cleanup] Deleted old installer: ${file}`);
-        } catch (err) {
-          // It's likely in use or already deleted, just skip
-          console.log(`[Cleanup] Skipping ${file}: ${err.message}`);
+    const cleanDir = async (dirPath, isUpdaterDir = false) => {
+      try {
+        const files = await fs.readdir(dirPath);
+        for (const file of files) {
+          let shouldDelete = false;
+
+          if (isUpdaterDir && file.toLowerCase() === genericInstallerName) {
+            // In the updater dir, we'll be aggressive after a successful update restart
+            shouldDelete = true;
+          } else {
+            const match = file.match(installerPattern);
+            if (match) {
+              const fileVersion = match[2];
+              // If file version is less than or equal to current version, it's junk
+              if (fileVersion <= appVersion) {
+                shouldDelete = true;
+              }
+            }
+          }
+
+          if (shouldDelete) {
+            const filePath = path.join(dirPath, file);
+            await fs.unlink(filePath).catch(() => { });
+          }
         }
+      } catch (e) {
+        // Directory might not exist, ignore
       }
-    }
+    };
+
+    console.log('[Cleanup] Running smart maintenance...');
+    await cleanDir(tempDir);
+    await cleanDir(updaterDir, true);
+
   } catch (error) {
-    console.error('[Cleanup] Error during temp cleanup:', error);
+    console.error('[Cleanup] Error during smart maintenance:', error);
   }
 };
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-  createWindow();
+  createWindow().then((win) => {
+    // Setup periodic checks (every 30 minutes)
+    setInterval(() => {
+      const windows = BrowserWindow.getAllWindows();
+      if (windows.length > 0) {
+        checkForUpdates(windows[0]);
+        checkForAppUpdates(windows[0]);
+      }
+    }, 30 * 60 * 1000);
+  });
 
   // Cleanup old installers on startup
   cleanupTempInstallers();

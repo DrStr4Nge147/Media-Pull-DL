@@ -39,7 +39,7 @@ const getExecutablePath = async () => {
   return path.join(process.resourcesPath, binaryName);
 };
 
-const getBinDir = () => {
+export const getBinDir = () => {
   return isDev ? path.join(app.getAppPath(), 'bin') : process.resourcesPath;
 };
 
@@ -162,37 +162,91 @@ export const getYtDlpVersion = async () => {
   });
 };
 
-export const updateYtDlp = async (onLog) => {
+export const updateYtDlp = async (onLog, onProgress) => {
+  const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
   const ytDlpExecutable = await getExecutablePath();
-  const args = ['--update'];
+  const binDir = getBinDir();
+  const targetPath = path.join(binDir, binaryName);
 
-  return new Promise((resolve, reject) => {
-    onLog(`[yt-dlp] Updating: ${ytDlpExecutable} ${args.join(' ')}`);
-    const child = spawn(ytDlpExecutable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  // Attempt native update first
+  const attemptNativeUpdate = (args) => {
+    return new Promise((resolve) => {
+      onLog(`[yt-dlp] Attempting native update: ${ytDlpExecutable} ${args.join(' ')}`);
+      const child = spawn(ytDlpExecutable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
-    child.stdout.on('data', (data) => {
-      onLog(`[yt-dlp] ${data.toString().trim()}`);
+      child.stdout.on('data', (data) => {
+        onLog(`[yt-dlp] ${data.toString().trim()}`);
+      });
+
+      child.stderr.on('data', (data) => {
+        onLog(`[yt-dlp] Error: ${data.toString().trim()}`);
+      });
+
+      child.on('close', (code) => {
+        resolve(code === 0);
+      });
+
+      child.on('error', (err) => {
+        onLog(`[yt-dlp] Native update error: ${err.message}`);
+        resolve(false);
+      });
     });
+  };
 
-    child.stderr.on('data', (data) => {
-      onLog(`[yt-dlp] Error: ${data.toString().trim()}`);
-    });
+  onLog('[System] Starting core update process...');
+  const nativeSuccess = await attemptNativeUpdate(['-U']);
 
-    child.on('close', (code) => {
-      if (code === 0) {
-        onLog('[yt-dlp] Update successful.');
-        resolve(true);
-      } else {
-        onLog(`[yt-dlp] Update failed with code ${code}`);
-        reject(new Error(`Update failed with code ${code}`));
+  if (nativeSuccess) {
+    onLog('[System] Native update successful.');
+    if (onProgress) onProgress(100);
+    return true;
+  }
+
+  onLog('[System] Native update failed or not supported. Falling back to manual download...');
+
+  try {
+    const url = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${binaryName}`;
+    onLog(`[System] Fetching latest binary from: ${url}`);
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to download yt-dlp: ${response.statusText}`);
+
+    const totalBytes = parseInt(response.headers.get('content-length') || '0', 10);
+    let downloadedBytes = 0;
+
+    const tempPath = `${targetPath}.tmp`;
+    const fileStream = createWriteStream(tempPath);
+    const reader = response.body.getReader();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      fileStream.write(value);
+      downloadedBytes += value.length;
+
+      if (totalBytes > 0 && onProgress) {
+        onProgress((downloadedBytes / totalBytes) * 100);
       }
-    });
+    }
 
-    child.on('error', (err) => {
-      onLog(`[yt-dlp] Failed to start update: ${err.message}`);
-      reject(err);
-    });
-  });
+    fileStream.end();
+
+    // Swap temp file to actual file
+    await fs.unlink(targetPath).catch(() => { });
+    await fs.rename(tempPath, targetPath);
+
+    if (process.platform !== 'win32') {
+      await fs.chmod(targetPath, 0o755);
+    }
+
+    onLog('[System] Manual update completed successfully.');
+    if (onProgress) onProgress(100);
+    return true;
+  } catch (error) {
+    onLog(`[System] Update failed: ${error.message}`);
+    throw error;
+  }
 };
 
 export const getVideoMetadata = async (url) => {

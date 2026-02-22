@@ -32,6 +32,7 @@ export interface AppSettings {
   defaultArgs: string;
   presets: Preset[];
   theme: 'light' | 'dark';
+  autoUpdateCore?: boolean;
 }
 
 export interface Preset {

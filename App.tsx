@@ -18,7 +18,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: '2', name: 'Audio Only (MP3)', args: '-x --audio-format mp3' },
     { id: '3', name: 'Low Res (480p)', args: '-S "res:480"' }
   ],
-  theme: 'dark'
+  theme: 'dark',
+  autoUpdateCore: true
 };
 
 const App: React.FC = () => {
@@ -32,12 +33,16 @@ const App: React.FC = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+
+        // Merge with defaults to ensure new fields (like autoUpdateCore) exist
+        const merged = { ...DEFAULT_SETTINGS, ...parsed };
+
         // Migration: Update default destination from old './YT-DLP' to new './Media-Pull DL'
-        if (parsed.defaultDestination === './YT-DLP') {
-          parsed.defaultDestination = './Media-Pull DL';
-          localStorage.setItem('yt_dlp_settings', JSON.stringify(parsed));
+        if (merged.defaultDestination === './YT-DLP') {
+          merged.defaultDestination = './Media-Pull DL';
+          localStorage.setItem('yt_dlp_settings', JSON.stringify(merged));
         }
-        return parsed;
+        return merged;
       } catch (e) {
         console.error('Failed to parse settings:', e);
         return DEFAULT_SETTINGS;
@@ -54,6 +59,8 @@ const App: React.FC = () => {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
   const [currentVersion, setCurrentVersion] = useState<string | null>(null);
+  const [coreUpdateProgress, setCoreUpdateProgress] = useState<number | null>(null);
+  const [coreUpdateError, setCoreUpdateError] = useState<string | null>(null);
   const [history, setHistory] = useState<DownloadItem[]>(() => {
     const saved = localStorage.getItem('yt_dlp_history');
     return saved ? JSON.parse(saved) : [];
@@ -111,8 +118,18 @@ const App: React.FC = () => {
         setUpdateSuccess(version);
         setCurrentVersion(version);
         setUpdateInfo(null);
+        setCoreUpdateError(null);
         // Automatically hide notification banner after 5s
         setTimeout(() => setUpdateSuccess(null), 5000);
+      });
+    }
+
+    if (typeof w.onYtDlpUpdateError === 'function') {
+      w.onYtDlpUpdateError((error: string) => {
+        setCoreUpdateError(error);
+        setUpdateInfo(null);
+        // Hide error after 10s
+        setTimeout(() => setCoreUpdateError(null), 10000);
       });
     }
 
@@ -157,6 +174,12 @@ const App: React.FC = () => {
       });
     }
 
+    if (typeof w.onYtDlpUpdateProgress === 'function') {
+      w.onYtDlpUpdateProgress((progress: number) => {
+        setCoreUpdateProgress(progress);
+      });
+    }
+
     if (w.windowControls && w.windowControls.onMaximizedStatus) {
       w.windowControls.onMaximizedStatus((status: boolean) => {
         setIsMaximized(status);
@@ -170,10 +193,19 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handleUpdate = async () => {
+  useEffect(() => {
+    if (updateInfo && settings.autoUpdateCore && !isUpdating) {
+      handleUpdate(true);
+    }
+  }, [updateInfo, settings.autoUpdateCore]);
+
+  const handleUpdate = async (silent = false) => {
     setIsUpdating(true);
-    setShowUpdateModal(true);
+    if (!silent) {
+      setShowUpdateModal(true);
+    }
     setUpdateLogs(['[System] Starting update...']);
+    setCoreUpdateProgress(0);
 
     const w = window as any;
     w.onYtDlpUpdateLog((log: string) => {
@@ -187,18 +219,28 @@ const App: React.FC = () => {
         setUpdateSuccess(result.version);
         setCurrentVersion(result.version);
         setUpdateInfo(null);
-        setTimeout(() => {
-          setShowUpdateModal(false);
-          // Keep success message for 5 seconds
+
+        if (!silent) {
+          setTimeout(() => {
+            setShowUpdateModal(false);
+            // Keep success message for 5 seconds
+            setTimeout(() => setUpdateSuccess(null), 5000);
+          }, 1500);
+        } else {
+          // In silent mode, just show the success toast
           setTimeout(() => setUpdateSuccess(null), 5000);
-        }, 1500);
+        }
       } else {
         setUpdateLogs(prev => [...prev, `[Error] Update failed: ${result.error}`]);
+        // If silent update failed, maybe show the modal now so the user can see why?
+        if (silent) setShowUpdateModal(true);
       }
     } catch (e) {
       setUpdateLogs(prev => [...prev, `[Error] ${e instanceof Error ? e.message : String(e)}`]);
+      if (silent) setShowUpdateModal(true);
     } finally {
       setIsUpdating(false);
+      setCoreUpdateProgress(null);
     }
   };
 
@@ -294,7 +336,7 @@ const App: React.FC = () => {
       }
     }
     localStorage.setItem('yt_dlp_settings', JSON.stringify(settings));
-  }, [settings.theme]);
+  }, [settings]);
 
   // Sync shared destination when settings change
   useEffect(() => {
@@ -618,7 +660,10 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col p-4 pt-0 md:p-8 md:pt-0 lg:p-10 lg:pt-0 xl:p-12 xl:pt-0 overflow-hidden">
         {/* App Update Modal */}
         {showAppUpdateModal && appUpdateInfo && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/40 dark:bg-slate-950/90 backdrop-blur-sm">
+          <div
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/40 dark:bg-slate-950/90 backdrop-blur-sm"
+            style={{ WebkitAppRegion: 'no-drag' } as any}
+          >
             <div className="bg-white dark:bg-slate-800 border-2 border-purple-500/30 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl dark:shadow-purple-900/50 animate-fadeIn">
               <div className="p-8 text-center">
                 <div className="bg-purple-600/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-purple-500/50 shadow-lg shadow-purple-900/30">
@@ -707,7 +752,10 @@ const App: React.FC = () => {
         )}
 
         {showUpdateModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 dark:bg-slate-950/80 backdrop-blur-md">
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 dark:bg-slate-950/80 backdrop-blur-md"
+            style={{ WebkitAppRegion: 'no-drag' } as any}
+          >
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl">
               <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center text-slate-900 dark:text-white">
                 <h3 className="text-xl font-bold flex items-center gap-3">
@@ -724,13 +772,28 @@ const App: React.FC = () => {
                 )}
               </div>
               <div className="p-6">
-                <div className="bg-slate-950 p-4 rounded-xl font-mono text-sm h-64 overflow-y-auto border border-slate-800 shadow-inner select-text">
+                <div className="bg-slate-950 p-4 rounded-xl font-mono text-sm h-64 overflow-y-auto border border-slate-800 shadow-inner select-text mb-4">
                   {updateLogs.map((log, i) => (
                     <div key={i} className={`mb-1 ${log.startsWith('[Error]') ? 'text-red-400' : log.startsWith('[System]') ? 'text-blue-400' : 'text-slate-300'}`}>
                       {log}
                     </div>
                   ))}
                 </div>
+
+                {coreUpdateProgress !== null && (
+                  <div className="animate-fadeIn">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Update Progress</span>
+                      <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">{Math.round(coreUpdateProgress)}%</span>
+                    </div>
+                    <div className="h-3 w-full bg-slate-100 dark:bg-slate-950 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 p-0.5">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full transition-all duration-300 shadow-sm shadow-blue-500/50"
+                        style={{ width: `${coreUpdateProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="p-6 bg-slate-50 dark:bg-slate-800/50 flex justify-end">
                 <button
@@ -883,7 +946,7 @@ const App: React.FC = () => {
                 <DownloadForm
                   onAdd={addToQueue}
                   onAddMultiple={addMultipleToQueue}
-                  isProcessing={isProcessing}
+                  isProcessing={isProcessing || isUpdating}
                   mode={viewMode}
                   settings={settings}
                   sharedDestination={sharedDestination}
@@ -920,15 +983,15 @@ const App: React.FC = () => {
                   </div>
 
                   <button
-                    disabled={isProcessing || totalItems === 0}
+                    disabled={isProcessing || isUpdating || totalItems === 0}
                     onClick={() => startBatchDownload(queue)}
-                    className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all ${isProcessing
+                    className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all ${isProcessing || isUpdating
                       ? 'bg-slate-700 cursor-not-allowed opacity-50'
                       : 'bg-green-600 hover:bg-green-500 shadow-lg shadow-green-900/20 active:scale-95'
                       }`}
                   >
                     <i className="fa-solid fa-play"></i>
-                    {isProcessing ? 'Processing...' : 'Start Download'}
+                    {isUpdating ? 'Updating...' : (isProcessing ? 'Processing...' : 'Start Download')}
                   </button>
                 </div>
               )}
@@ -1015,8 +1078,44 @@ const App: React.FC = () => {
           <p>Media-Pull DL • Simplistic Media Download Manager</p>
           <div className="flex items-center gap-4">
             <span className="bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-300 dark:border-slate-700">App v{appVersion}</span>
-            {currentVersion && (
+            {currentVersion && !isUpdating && (
               <span className="bg-emerald-500/5 text-emerald-600 dark:text-emerald-500 px-2 py-0.5 rounded border border-emerald-500/20">Core v{currentVersion}</span>
+            )}
+            {isUpdating && (
+              <div className="flex items-center gap-3 bg-blue-500/5 px-3 py-1 rounded-full border border-blue-500/20 animate-fadeIn">
+                <i className="fa-solid fa-spinner fa-spin text-blue-500"></i>
+                <span className="text-blue-600 dark:text-blue-400 font-bold">Updating...</span>
+                {coreUpdateProgress !== null && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden p-0.5">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                        style={{ width: `${coreUpdateProgress}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-[9px] font-mono text-blue-500">{Math.round(coreUpdateProgress)}%</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {updateInfo && !isUpdating && (
+              <button
+                onClick={() => handleUpdate(false)}
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-500 transition-colors flex items-center gap-1.5 animate-pulse"
+                title={`Update available: ${updateInfo.latest}`}
+              >
+                <i className="fa-solid fa-arrows-rotate"></i>
+                Update Core
+              </button>
+            )}
+            {coreUpdateError && (
+              <div
+                className="text-amber-600 dark:text-amber-500 flex items-center gap-1.5 animate-fadeIn"
+                title={coreUpdateError}
+              >
+                <i className="fa-solid fa-triangle-exclamation"></i>
+                <span className="max-w-[150px] truncate hidden sm:inline">Limit Exceeded</span>
+              </div>
             )}
             {appUpdateInfo && (
               <button
