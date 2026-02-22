@@ -1,10 +1,10 @@
 {
-    "version": "0.5.0",
+    "version": "0.5.1",
     "url": "https://github.com/DrStr4Nge147/Media-Pull-DL/releases/latest",
-    "downloadUrl": "https://github.com/DrStr4Nge147/Media-Pull-DL/releases/download/v0.5.0/Media-Pull.DL.Setup.v0.5.0.exe",
-    "assetName": "Media-Pull.DL.Setup.v0.5.0.exe",
-    "portableDownloadUrl": "https://github.com/DrStr4Nge147/Media-Pull-DL/releases/download/v0.5.0/Media-Pull.DL.Portable.v0.5.0.exe",
-    "portableAssetName": "Media-Pull.DL.Portable.v0.5.0.exe",
-    "zipDownloadUrl": "https://github.com/DrStr4Nge147/Media-Pull-DL/releases/download/v0.5.0/Media-Pull.DL.v0.5.0.zip",
-    "zipAssetName": "Media-Pull.DL.v0.5.0.zip"
+    "downloadUrl": "https://github.com/DrStr4Nge147/Media-Pull-DL/releases/download/v0.5.1/Media-Pull.DL.Setup.v0.5.1.exe",
+    "assetName": "Media-Pull.DL.Setup.v0.5.1.exe",
+    "portableDownloadUrl": "https://github.com/DrStr4Nge147/Media-Pull-DL/releases/download/v0.5.1/Media-Pull.DL.Portable.v0.5.1.exe",
+    "portableAssetName": "Media-Pull.DL.Portable.v0.5.1.exe",
+    "zipDownloadUrl": "https://github.com/DrStr4Nge147/Media-Pull-DL/releases/download/v0.5.1/Media-Pull.DL.v0.5.1.zip",
+    "zipAssetName": "Media-Pull.DL.v0.5.1.zip"
 }
