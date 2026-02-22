@@ -12,7 +12,6 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('Media-Pull DL');
 }
 
-Menu.setApplicationMenu(null);
 
 const activeDownloads = new Map(); // id => child process
 
@@ -42,6 +41,7 @@ const resolveDestination = (destination) => {
 };
 
 const createWindow = async () => {
+  console.log('[System] Creating window...');
   const win = new BrowserWindow({
     width: 1150,
     height: 800,
@@ -59,8 +59,8 @@ const createWindow = async () => {
       nodeIntegration: false,
     },
     frame: false,
-    titleBarStyle: 'hidden',
-    // On Windows, this allows the content to extend into the title bar area
+    // On Windows, frame: false is enough for a custom title bar.
+    // content will extend into the title bar area automatically.
   });
 
   win.on('maximize', () => {
@@ -71,27 +71,29 @@ const createWindow = async () => {
     win.webContents.send('window-maximized-status', false);
   });
 
-  if (isDev) {
-    await win.loadURL(getDevServerUrl());
-  } else {
-    await win.loadFile(path.join(app.getAppPath(), 'dist', 'index.html'));
-  }
-
-  // Set initial background color based on any saved state or just default
-  // Since we can't easily read localStorage from here, we rely on the renderer 
-  // to tell us as soon as it loads.
-
+  // Set listeners BEFORE loading to avoid race conditions
   win.once('ready-to-show', () => {
+    console.log('[System] Window ready to show');
     win.show();
   });
 
-  win.focus();
-
-  // Wait for content to load before sending update notification
   win.webContents.once('did-finish-load', () => {
+    console.log('[System] Content finished loading');
     checkForUpdates(win);
     setTimeout(() => checkForAppUpdates(win), 2000);
   });
+
+  if (isDev) {
+    await win.loadURL(getDevServerUrl()).catch(err => {
+      console.error('[System] Failed to load dev server URL:', err);
+    });
+  } else {
+    await win.loadFile(path.join(app.getAppPath(), 'dist', 'index.html')).catch(err => {
+      console.error('[System] Failed to load production file:', err);
+    });
+  }
+
+  win.focus();
 };
 
 ipcMain.handle('window-minimize', (event) => {
@@ -450,6 +452,7 @@ const cleanupTempInstallers = async () => {
 };
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   createWindow();
 
   // Cleanup old installers on startup
