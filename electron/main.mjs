@@ -337,17 +337,37 @@ const checkForUpdates = async (win) => {
 
 const getAppDistInfo = () => {
   const portablePath = process.env.PORTABLE_EXECUTABLE_PATH;
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR;
+  const exePath = app.getPath('exe').toLowerCase();
+
   const isPortable = !!(
     portablePath ||
-    process.env.PORTABLE_EXECUTABLE_DIR ||
-    app.getPath('exe').toLowerCase().includes('portable')
+    portableDir ||
+    exePath.includes('portable')
   );
 
-  const exePath = app.getPath('exe').toLowerCase();
-  const isInstalled = exePath.includes('appdata') || exePath.includes('program files');
+  // NSIS installer usually puts the app in AppData\Local\Programs or Program Files
+  // Exclude Temp directory from "installed" detection as portable exes extract there
+  const isInstalled = (exePath.includes('appdata') && !exePath.includes('temp')) ||
+    exePath.includes('program files') ||
+    exePath.includes('local\\programs');
+
   const isZip = !isInstalled && !isPortable;
 
-  return { isPortable, isZip, isInstalled, portablePath, exePath };
+  // Resolve the "Actual" directory where the app/exe is located
+  let appDir;
+  if (portableDir) {
+    appDir = portableDir;
+  } else if (portablePath) {
+    appDir = path.dirname(portablePath);
+  } else {
+    appDir = path.dirname(app.getPath('exe'));
+  }
+
+  console.log(`[Dist Info] Mode: ${isPortable ? 'Portable' : isInstalled ? 'Installed' : 'Zip'}, AppDir: ${appDir}, ExePath: ${exePath}`);
+  if (isPortable) console.log(`[Dist Info] Portable Env: Path=${portablePath}, Dir=${portableDir}`);
+
+  return { isPortable, isZip, isInstalled, portablePath, portableDir, appDir, exePath };
 };
 
 const checkForAppUpdates = async (win) => {
@@ -491,15 +511,14 @@ ipcMain.handle('get-app-version', () => {
 ipcMain.handle('download-app-update', async (event, { url, fileName }) => {
   const win = BrowserWindow.fromWebContents(event.sender);
 
-  const { isPortable, portablePath } = getAppDistInfo();
+  const { isPortable, appDir } = getAppDistInfo();
 
   // Set download path based on mode
   let downloadPath;
   if (isPortable) {
     // For portable mode, download to the same directory as the current portable exe
-    const currentExeDir = portablePath ? path.dirname(portablePath) : path.dirname(app.getPath('exe'));
-    downloadPath = path.join(currentExeDir, fileName);
-    console.log(`[App Update] Portable mode detected. Downloading to: ${downloadPath}`);
+    downloadPath = path.join(appDir, fileName);
+    console.log(`[App Update] Portable mode detected. Downloading next to exe: ${downloadPath}`);
   } else {
     // For zip or installed mode, download to temp
     downloadPath = path.join(app.getPath('temp'), fileName);
@@ -566,9 +585,7 @@ ipcMain.handle('quit-and-install', async (_event, filePath) => {
 
   if (isZip) {
     console.log(`[App Update] Zip update detected. Preparing extraction for ${filePath}...`);
-    const { portablePath } = getAppDistInfo();
-    const currentExe = portablePath || app.getPath('exe');
-    const targetDir = path.dirname(currentExe);
+    const { appDir, exePath } = getAppDistInfo();
     const tempBatchPath = path.join(app.getPath('temp'), 'update-mediapull.bat');
 
     // Create a batch script to handle extraction after the app closes
@@ -579,11 +596,11 @@ echo Waiting for application to exit...
 taskkill /f /pid ${process.pid} >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-echo Extracting updates to ${targetDir}...
-powershell -NoProfile -Command "Expand-Archive -Path '${filePath.replace(/'/g, "''")}' -DestinationPath '${targetDir.replace(/'/g, "''")}' -Force"
+echo Extracting updates to ${appDir}...
+powershell -NoProfile -Command "Expand-Archive -Path '${filePath.replace(/'/g, "''")}' -DestinationPath '${appDir.replace(/'/g, "''")}' -Force"
 
 echo Starting application...
-start "" "${currentExe}"
+start "" "${exePath}"
 
 echo Cleaning up...
 del "${filePath}"
