@@ -11,7 +11,7 @@
     margin: 0;
     padding: 0;
     overflow: hidden;
-    @apply bg-slate-50 dark:bg-slate-950 transition-colors duration-300;
+    @apply bg-slate-50 dark:bg-slate-950;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
@@ -118,5 +118,14 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

@@ -119,5 +119,6 @@ contextBridge.exposeInMainWorld('windowControls', {
   minimize: () => ipcRenderer.invoke('window-minimize'),
   maximize: () => ipcRenderer.invoke('window-maximize'),
   close: () => ipcRenderer.invoke('window-close'),
+  setBackgroundColor: (color) => ipcRenderer.invoke('set-background-color', color),
   onMaximizedStatus: (callback) => ipcRenderer.on('window-maximized-status', (_, isMaximized) => callback(isMaximized))
 });

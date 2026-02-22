@@ -7,6 +7,36 @@
     <link rel="icon" type="image/svg+xml" href="./logo.svg">
     <title>Media-Pull DL</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('yt_dlp_settings');
+                var theme = 'dark';
+                if (saved) {
+                    var settings = JSON.parse(saved);
+                    theme = settings.theme || 'dark';
+                }
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.style.backgroundColor = '#020617';
+                    var color = '#020617';
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    document.documentElement.style.backgroundColor = '#f8fafc';
+                    var color = '#f8fafc';
+                }
+
+                // Try to sync with Electron as soon as bridge is ready
+                var syncInterval = setInterval(function () {
+                    if (window.windowControls && window.windowControls.setBackgroundColor) {
+                        window.windowControls.setBackgroundColor(color);
+                        clearInterval(syncInterval);
+                    }
+                }, 10);
+                setTimeout(function () { clearInterval(syncInterval); }, 5000);
+            } catch (e) { }
+        })();
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 

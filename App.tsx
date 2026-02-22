@@ -277,13 +277,24 @@ const App: React.FC = () => {
 
   // Theme management
   useEffect(() => {
-    if (settings.theme === 'dark') {
+    const w = window as any;
+    const isDark = settings.theme === 'dark';
+
+    console.log(`[Theme] Switching to ${settings.theme}, Bridge available: ${!!w.windowControls?.setBackgroundColor}`);
+
+    if (isDark) {
       document.documentElement.classList.add('dark');
+      if (w.windowControls?.setBackgroundColor) {
+        w.windowControls.setBackgroundColor('#020617'); // slate-950
+      }
     } else {
       document.documentElement.classList.remove('dark');
+      if (w.windowControls?.setBackgroundColor) {
+        w.windowControls.setBackgroundColor('#f8fafc'); // slate-50
+      }
     }
     localStorage.setItem('yt_dlp_settings', JSON.stringify(settings));
-  }, [settings]);
+  }, [settings.theme]);
 
   // Sync shared destination when settings change
   useEffect(() => {
@@ -574,33 +585,33 @@ const App: React.FC = () => {
   const completedItems = queue.filter(i => i.status === DownloadStatus.COMPLETED).length;
 
   return (
-    <div className="h-full flex flex-col w-full overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      <div className="flex justify-end p-2 px-4 shrink-0" style={{ WebkitAppRegion: 'drag' } as any}>
-        <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as any}>
+    <div className="h-full flex flex-col w-full overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      <div className="flex justify-end h-8 md:h-10 shrink-0 select-none" style={{ WebkitAppRegion: 'drag' } as any}>
+        <div className="flex items-stretch" style={{ WebkitAppRegion: 'no-drag' } as any}>
           <button
             onClick={() => (window as any).windowControls?.minimize()}
-            className="w-10 h-10 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all active:scale-90"
+            className="w-10 md:w-12 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white transition-colors"
             title="Minimize"
           >
-            <i className="fa-solid fa-minus text-xs"></i>
+            <i className="fa-solid fa-minus text-[10px]"></i>
           </button>
           <button
             onClick={() => (window as any).windowControls?.maximize()}
-            className="w-10 h-10 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all active:scale-90"
+            className="w-10 md:w-12 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white transition-colors"
             title={isMaximized ? "Restore" : "Maximize"}
           >
             {isMaximized ? (
-              <i className="fa-regular fa-clone text-xs"></i>
+              <i className="fa-regular fa-clone text-[10px]"></i>
             ) : (
-              <i className="fa-regular fa-square text-xs"></i>
+              <i className="fa-regular fa-square text-[10px]"></i>
             )}
           </button>
           <button
             onClick={() => (window as any).windowControls?.close()}
-            className="w-10 h-10 flex items-center justify-center rounded-xl text-slate-500 dark:text-slate-500 hover:bg-red-500 hover:text-white transition-all active:scale-90"
+            className="w-11 md:w-12 h-full flex items-center justify-center text-slate-500 hover:bg-red-600 hover:text-white transition-colors"
             title="Close"
           >
-            <i className="fa-solid fa-xmark text-sm"></i>
+            <i className="fa-solid fa-xmark text-base"></i>
           </button>
         </div>
       </div>
@@ -735,7 +746,7 @@ const App: React.FC = () => {
         )}
 
         <header
-          className="w-full max-w-[1800px] mx-auto flex-shrink-0 flex justify-between items-center mb-6 md:mb-10 bg-white dark:bg-slate-800/50 p-4 md:p-6 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-slate-700 backdrop-blur-sm shadow-sm dark:shadow-none transition-all overflow-hidden"
+          className="w-full max-w-[1800px] mx-auto flex-shrink-0 flex justify-between items-center mb-4 md:mb-8 bg-white dark:bg-slate-800/50 p-3 md:p-4 rounded-2xl md:rounded-3xl border border-slate-200 dark:border-slate-700 backdrop-blur-sm shadow-sm dark:shadow-none transition-all overflow-hidden"
           style={{ WebkitAppRegion: 'drag' } as any}
         >
           <div className="flex items-center gap-4 cursor-pointer" onClick={resetView} style={{ WebkitAppRegion: 'no-drag' } as any}>
@@ -796,50 +807,50 @@ const App: React.FC = () => {
         </header>
 
         {!viewMode ? (
-          <div className="flex-1 flex flex-col items-center justify-center animate-fadeIn overflow-y-auto overflow-x-hidden custom-scrollbar px-2">
+          <div className="flex-1 flex flex-col items-center justify-center animate-fadeIn overflow-y-auto no-scrollbar px-2 py-4">
             <div className="w-full max-w-6xl">
-              <h2 className="text-3xl md:text-5xl font-black mb-12 text-center bg-gradient-to-br from-slate-900 via-slate-700 to-slate-400 dark:from-white dark:via-slate-200 dark:to-slate-500 bg-clip-text text-transparent tracking-tighter">Choose Your Workflow</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
+              <h2 className="text-xl md:text-5xl font-black mb-4 md:mb-12 text-center bg-gradient-to-br from-slate-900 via-slate-700 to-slate-400 dark:from-white dark:via-slate-200 dark:to-slate-500 bg-clip-text text-transparent tracking-tighter">Choose Your Workflow</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 lg:gap-8 w-full">
                 <button
                   onClick={() => setViewMode('SINGLE')}
-                  className="group p-10 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-[2.5rem] transition-all hover:scale-[1.02] active:scale-[0.98] transform-gpu text-left relative overflow-hidden flex flex-col no-underline shadow-2xl shadow-slate-200/60 dark:shadow-none"
+                  className="group p-4 sm:p-6 lg:p-10 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-[2rem] lg:rounded-[2.5rem] transition-all hover:scale-[1.02] active:scale-[0.98] transform-gpu text-left relative overflow-hidden flex flex-col no-underline shadow-2xl shadow-slate-200/60 dark:shadow-none"
                 >
                   <div className="absolute -right-8 -top-8 opacity-[0.03] dark:opacity-[0.05] group-hover:opacity-[0.07] transition-opacity rotate-12">
                     <i className="fa-solid fa-bolt text-[15rem]"></i>
                   </div>
-                  <div className="bg-blue-600 w-16 h-16 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-blue-500/30 dark:shadow-blue-900/40 group-hover:rotate-6 transition-transform">
-                    <i className="fa-solid fa-bolt text-2xl text-white"></i>
+                  <div className="bg-blue-600 w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 rounded-xl md:rounded-2xl lg:rounded-3xl flex items-center justify-center mb-2 md:mb-4 lg:mb-6 shadow-xl shadow-blue-500/30 dark:shadow-blue-900/40 group-hover:rotate-6 transition-transform">
+                    <i className="fa-solid fa-bolt text-xl lg:text-2xl text-white"></i>
                   </div>
-                  <h3 className="text-xl font-black mb-3 text-slate-900 dark:text-white uppercase tracking-tight">Single Download</h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed font-medium">Fast, one-off downloads. Perfect for grabbing content quickly with custom options.</p>
+                  <h3 className="text-base md:text-lg lg:text-xl font-black mb-1 md:mb-3 text-slate-900 dark:text-white uppercase tracking-tight">Single Download</h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-[11px] lg:text-sm leading-relaxed font-medium line-clamp-2 md:line-clamp-none">Fast, one-off downloads. Perfect for grabbing content quickly with custom options.</p>
                 </button>
 
                 <button
                   onClick={() => setViewMode('QUEUE')}
-                  className="group p-10 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-[2.5rem] transition-all hover:scale-[1.02] active:scale-[0.98] transform-gpu text-left relative overflow-hidden flex flex-col no-underline shadow-2xl shadow-slate-200/60 dark:shadow-none"
+                  className="group p-4 sm:p-6 lg:p-10 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-[2rem] lg:rounded-[2.5rem] transition-all hover:scale-[1.02] active:scale-[0.98] transform-gpu text-left relative overflow-hidden flex flex-col no-underline shadow-2xl shadow-slate-200/60 dark:shadow-none"
                 >
                   <div className="absolute -right-8 -top-8 opacity-[0.03] dark:opacity-[0.05] group-hover:opacity-[0.07] transition-opacity rotate-12">
                     <i className="fa-solid fa-list-check text-[15rem]"></i>
                   </div>
-                  <div className="bg-purple-600 w-16 h-16 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-purple-500/30 dark:shadow-purple-900/40 group-hover:rotate-6 transition-transform">
-                    <i className="fa-solid fa-list-check text-2xl text-white"></i>
+                  <div className="bg-purple-600 w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 rounded-xl md:rounded-2xl lg:rounded-3xl flex items-center justify-center mb-2 md:mb-4 lg:mb-6 shadow-xl shadow-purple-500/30 dark:shadow-purple-900/40 group-hover:rotate-6 transition-transform">
+                    <i className="fa-solid fa-list-check text-xl lg:text-2xl text-white"></i>
                   </div>
-                  <h3 className="text-xl font-black mb-3 text-slate-900 dark:text-white uppercase tracking-tight">Multiple Download</h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed font-medium">Build a list and download them sequentially or simultaneously. Ideal for playlists.</p>
+                  <h3 className="text-base md:text-lg lg:text-xl font-black mb-1 md:mb-3 text-slate-900 dark:text-white uppercase tracking-tight">Multiple Download</h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-[11px] lg:text-sm leading-relaxed font-medium line-clamp-2 md:line-clamp-none">Build a list and download them sequentially or simultaneously. Ideal for playlists.</p>
                 </button>
 
                 <button
                   onClick={() => setViewMode('HISTORY')}
-                  className="group p-10 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-[2.5rem] transition-all hover:scale-[1.02] active:scale-[0.98] transform-gpu text-left relative overflow-hidden flex flex-col no-underline shadow-2xl shadow-slate-200/60 dark:shadow-none"
+                  className="group p-4 sm:p-6 lg:p-10 bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800 border-2 border-slate-100 dark:border-slate-700/50 rounded-[2rem] lg:rounded-[2.5rem] transition-all hover:scale-[1.02] active:scale-[0.98] transform-gpu text-left relative overflow-hidden flex flex-col no-underline shadow-2xl shadow-slate-200/60 dark:shadow-none"
                 >
                   <div className="absolute -right-8 -top-8 opacity-[0.03] dark:opacity-[0.05] group-hover:opacity-[0.07] transition-opacity rotate-12">
                     <i className="fa-solid fa-clock-rotate-left text-[15rem]"></i>
                   </div>
-                  <div className="bg-amber-600 w-16 h-16 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-amber-500/30 dark:shadow-amber-900/40 group-hover:rotate-6 transition-transform">
-                    <i className="fa-solid fa-clock-rotate-left text-2xl text-white"></i>
+                  <div className="bg-amber-600 w-10 h-10 md:w-12 md:h-12 lg:w-16 lg:h-16 rounded-xl md:rounded-2xl lg:rounded-3xl flex items-center justify-center mb-2 md:mb-4 lg:mb-6 shadow-xl shadow-amber-500/30 dark:shadow-amber-900/40 group-hover:rotate-6 transition-transform">
+                    <i className="fa-solid fa-clock-rotate-left text-xl lg:text-2xl text-white"></i>
                   </div>
-                  <h3 className="text-xl font-black mb-3 text-slate-900 dark:text-white uppercase tracking-tight">History</h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed font-medium">Review past downloads, open folders, or clear logs from previous sessions.</p>
+                  <h3 className="text-base md:text-lg lg:text-xl font-black mb-1 md:mb-3 text-slate-900 dark:text-white uppercase tracking-tight">History</h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-[11px] lg:text-sm leading-relaxed font-medium line-clamp-2 md:line-clamp-none">Review past downloads, open folders, or clear logs from previous sessions.</p>
                 </button>
               </div>
             </div>
@@ -1000,7 +1011,7 @@ const App: React.FC = () => {
           />
         )}
 
-        <footer className="mt-auto py-6 flex flex-col items-center gap-3 text-slate-500 text-[10px] uppercase tracking-[0.2em] font-black opacity-40 hover:opacity-80 transition-opacity">
+        <footer className="mt-auto py-2 flex flex-col items-center gap-2 text-slate-500 text-[10px] uppercase tracking-[0.2em] font-black opacity-40 hover:opacity-80 transition-opacity">
           <p>Media-Pull DL • Simplistic Media Download Manager</p>
           <div className="flex items-center gap-4">
             <span className="bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-300 dark:border-slate-700">App v{appVersion}</span>

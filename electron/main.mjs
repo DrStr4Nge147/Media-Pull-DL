@@ -47,10 +47,11 @@ const createWindow = async () => {
     height: 800,
     minWidth: 900,
     minHeight: 650,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#020617',
     autoHideMenuBar: true,
     title: `Media-Pull DL v${appVersion}`,
     icon: getAssetPath('logo.ico'),
+    show: false, // Don't show until ready-to-show to help with initial painting
 
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -60,22 +61,6 @@ const createWindow = async () => {
     frame: false,
     titleBarStyle: 'hidden',
     // On Windows, this allows the content to extend into the title bar area
-  });
-
-  ipcMain.handle('window-minimize', () => {
-    win.minimize();
-  });
-
-  ipcMain.handle('window-maximize', () => {
-    if (win.isMaximized()) {
-      win.unmaximize();
-    } else {
-      win.maximize();
-    }
-  });
-
-  ipcMain.handle('window-close', () => {
-    win.close();
   });
 
   win.on('maximize', () => {
@@ -92,6 +77,14 @@ const createWindow = async () => {
     await win.loadFile(path.join(app.getAppPath(), 'dist', 'index.html'));
   }
 
+  // Set initial background color based on any saved state or just default
+  // Since we can't easily read localStorage from here, we rely on the renderer 
+  // to tell us as soon as it loads.
+
+  win.once('ready-to-show', () => {
+    win.show();
+  });
+
   win.focus();
 
   // Wait for content to load before sending update notification
@@ -100,6 +93,32 @@ const createWindow = async () => {
     setTimeout(() => checkForAppUpdates(win), 2000);
   });
 };
+
+ipcMain.handle('window-minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
+});
+
+ipcMain.handle('window-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  if (win.isMaximized()) {
+    win.unmaximize();
+  } else {
+    win.maximize();
+  }
+});
+
+ipcMain.handle('window-close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close();
+});
+
+ipcMain.handle('set-background-color', (event, color) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  console.log(`[IPC] Setting background color to: ${color}`);
+  if (win) {
+    win.setBackgroundColor(color);
+  }
+});
 
 ipcMain.handle('open-download-folder', async (_event, destination) => {
   const targetPath = resolveDestination(destination);
