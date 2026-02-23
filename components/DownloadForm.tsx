@@ -21,7 +21,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
   const [filename, setFilename] = useState('');
   const [extraArgs, setExtraArgs] = useState('');
   const [format, setFormat] = useState('mp4');
-  const [resolution, setResolution] = useState('1080p');
+  const [resolution, setResolution] = useState('best');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
@@ -33,7 +33,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [playlistSearch, setPlaylistSearch] = useState('');
   const [availableResolutions, setAvailableResolutions] = useState<string[]>(['best', '2160p', '1440p', '1080p', '720p', '480p', '360p']);
-  const [availableFormats, setAvailableFormats] = useState<string[]>(['mp4', 'mkv', 'webm', 'mp3', 'm4a']);
+  const [availableFormats, setAvailableFormats] = useState<string[]>(['mp4', 'mkv', 'webm', 'mp3', 'm4a', 'opus']);
   const [sponsorBlock, setSponsorBlock] = useState(false);
   const [sponsorBlockCategories, setSponsorBlockCategories] = useState<string[]>(['music_offtopic']);
 
@@ -128,8 +128,10 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
           data.formats.forEach((f: any) => {
             if (f.ext) extSet.add(f.ext);
           });
-          // Add mp3 manually as it's a common conversion
+          // Add common conversion formats manually 
           extSet.add('mp3');
+          extSet.add('opus');
+          extSet.add('m4a');
           setAvailableFormats(Array.from(extSet));
         }
 
@@ -501,7 +503,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                       value={resolution}
                       onChange={e => setResolution(e.target.value)}
                       disabled={AUDIO_EXTENSIONS.includes(format.toLowerCase())}
-                      className={`w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 dark:focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-950 text-slate-900 dark:text-white`}
+                      className={`w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 dark:focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-950 text-slate-900 dark:text-white`}
                     >
                       {availableResolutions.map(res => (
                         <option key={res} value={res}>{res === 'best' ? 'Best Quality' : res}</option>
@@ -516,19 +518,31 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                     <select
                       value={format}
                       onChange={e => setFormat(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 dark:focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer text-slate-900 dark:text-white"
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-4 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 dark:focus:border-indigo-500 transition-all text-sm appearance-none cursor-pointer text-slate-900 dark:text-white"
                     >
                       {videoFormats.length > 0 && (
-                        <optgroup label="Video Formats">
+                        <optgroup label="─── 📹 VIDEO FORMATS ───">
                           {videoFormats.map(ext => (
                             <option key={ext} value={ext}>{ext.toUpperCase()}</option>
                           ))}
                         </optgroup>
                       )}
                       {audioFormats.length > 0 && (
-                        <optgroup label="Audio Formats">
-                          {audioFormats.map(ext => (
-                            <option key={ext} value={ext}>{ext.toUpperCase()}</option>
+                        <optgroup label="─── 🎵 AUDIO FORMATS ───">
+                          {audioFormats.sort((a, b) => {
+                            // Sort opus first
+                            if (a === 'opus') return -1;
+                            if (b === 'opus') return 1;
+                            return 0;
+                          }).map(ext => (
+                            <option key={ext} value={ext}>
+                              {ext === 'opus' ? 'OPUS (Highest Quality - Recommended)' :
+                                ext === 'm4a' ? 'M4A (High Compatibility)' :
+                                  ext === 'mp3' ? 'MP3 (Universal Standard)' :
+                                    ext === 'flac' ? 'FLAC (Compressed Lossless)' :
+                                      ext === 'wav' ? 'WAV (Uncompressed Lossless)' :
+                                        ext.toUpperCase()}
+                            </option>
                           ))}
                         </optgroup>
                       )}
@@ -537,6 +551,7 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                   </div>
                 </div>
               </div>
+
 
               <div className="animate-fadeIn">
                 <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Filename</label>

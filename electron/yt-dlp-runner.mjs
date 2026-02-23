@@ -393,8 +393,8 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
     args.push('--js-runtime', 'node');
   }
 
-  if (format === 'mp3') {
-    args.push('--extract-audio', '--audio-format', 'mp3');
+  if (format === 'mp3' || format === 'opus' || format === 'm4a' || format === 'wav' || format === 'flac') {
+    args.push('--extract-audio', '--audio-format', format);
   } else if (format && format !== 'best') {
     // If specific format is requested, try to get that extension
     args.push('-f', `bestvideo[ext=${format}]+bestaudio[ext=m4a]/best[ext=${format}]/best`);
