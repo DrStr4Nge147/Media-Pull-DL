@@ -50,7 +50,8 @@
         "filter": [
           "yt-dlp.exe",
           "ffmpeg.exe",
-          "ffprobe.exe"
+          "ffprobe.exe",
+          "deno.exe"
         ]
       }
     ]

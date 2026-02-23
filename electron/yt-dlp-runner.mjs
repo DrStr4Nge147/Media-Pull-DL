@@ -24,6 +24,22 @@ const isFfmpegAvailableGlobal = async () => {
   });
 };
 
+let cachedGlobalDeno = null;
+const isDenoAvailableGlobal = async () => {
+  if (cachedGlobalDeno !== null) return cachedGlobalDeno;
+  return new Promise((resolve) => {
+    const executable = process.platform === 'win32' ? 'deno.exe' : 'deno';
+    const child = spawn(executable, ['--version'], { stdio: 'ignore' });
+    child.on('close', (code) => {
+      cachedGlobalDeno = code === 0;
+      resolve(cachedGlobalDeno);
+    });
+    child.on('error', () => {
+      cachedGlobalDeno = false;
+      resolve(false);
+    });
+  });
+};
 
 const getExecutablePath = async () => {
   const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
@@ -41,6 +57,36 @@ const getExecutablePath = async () => {
 
 export const getBinDir = () => {
   return isDev ? path.join(app.getAppPath(), 'bin') : process.resourcesPath;
+};
+
+const getDenoPath = async () => {
+  const binaryName = process.platform === 'win32' ? 'deno.exe' : 'deno';
+  const localPath = path.join(getBinDir(), binaryName);
+  try {
+    await fs.access(localPath);
+    return localPath;
+  } catch {
+    return null;
+  }
+};
+
+const getJsRuntimeArgs = async () => {
+  const denoPath = await getDenoPath();
+  if (denoPath) {
+    return ['--js-runtime', `deno:${denoPath}`];
+  }
+
+  // Fallback to searching PATH if bundled not found
+  const isGlobalDeno = await isDenoAvailableGlobal();
+  if (isGlobalDeno) {
+    return ['--js-runtime', 'deno'];
+  }
+
+  // Check for node as a last resort
+  if (process.env.PATH?.toLowerCase().includes('node')) {
+    return ['--js-runtime', 'node'];
+  }
+  return [];
 };
 
 export const bootstrapYtDlp = async (onLog) => {
@@ -121,6 +167,47 @@ export const bootstrapYtDlp = async (onLog) => {
         });
 
         onLog('[bootstrap] ffmpeg downloaded and installed successfully.');
+      }
+    }
+
+    // 3. Check/Download Deno (JS Runtime) - Windows only
+    if (process.platform === 'win32') {
+      const denoPath = path.join(binDir, 'deno.exe');
+      try {
+        await fs.access(denoPath);
+        onLog(`[bootstrap] deno already exists at ${denoPath}`);
+      } catch {
+        const isGlobal = await isDenoAvailableGlobal();
+        if (isGlobal) {
+          onLog('[bootstrap] deno is available globally. Skipping internal download.');
+        } else {
+          onLog('[bootstrap] deno (JS runtime) missing. Starting automatic download...');
+          const zipUrl = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip";
+          const tempZip = path.join(binDir, 'deno.zip');
+          const tempDir = path.join(binDir, 'deno-temp');
+
+          const { exec } = await import('node:child_process');
+
+          const psCommand = `
+            $ProgressPreference = 'SilentlyContinue';
+            Invoke-WebRequest -Uri "${zipUrl}" -OutFile "${tempZip}";
+            Expand-Archive -Path "${tempZip}" -DestinationPath "${tempDir}" -Force;
+            Move-Item -Path "${tempDir}\\deno.exe" -Destination "${binDir}";
+            Remove-Item -Path "${tempZip}" -Force;
+            Remove-Item -Path "${tempDir}" -Recurse -Force;
+          `;
+
+          await new Promise((resolve, reject) => {
+            exec(`powershell -NoProfile -Command "${psCommand.replace(/"/g, '\\"')}"`, (error, stdout, stderr) => {
+              if (error) {
+                reject(new Error(`Deno download failed: ${stderr || error.message}`));
+              } else {
+                resolve();
+              }
+            });
+          });
+          onLog('[bootstrap] deno downloaded successfully.');
+        }
       }
     }
 
@@ -253,10 +340,8 @@ export const getVideoMetadata = async (url) => {
   const ytDlpExecutable = await getExecutablePath();
   const args = ['--dump-json', '--no-playlist', url];
 
-  // Try to avoid JS runtime warning if node is available
-  if (process.env.PATH?.includes('node') || process.env.PATH?.includes('Node')) {
-    args.push('--js-runtime', 'node');
-  }
+  const jsArgs = await getJsRuntimeArgs();
+  args.push(...jsArgs);
 
   return new Promise((resolve, reject) => {
     const child = spawn(ytDlpExecutable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -312,9 +397,8 @@ export const getPlaylistMetadata = async (url) => {
   const ytDlpExecutable = await getExecutablePath();
   const args = ['--dump-single-json', '--flat-playlist', '--yes-playlist', url];
 
-  if (process.env.PATH?.includes('node') || process.env.PATH?.includes('Node')) {
-    args.push('--js-runtime', 'node');
-  }
+  const jsArgs = await getJsRuntimeArgs();
+  args.push(...jsArgs);
 
   return new Promise((resolve, reject) => {
     const child = spawn(ytDlpExecutable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -389,9 +473,8 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
     args.push('--no-playlist');
   }
 
-  if (process.env.PATH?.includes('node') || process.env.PATH?.includes('Node')) {
-    args.push('--js-runtime', 'node');
-  }
+  const jsArgs = await getJsRuntimeArgs();
+  args.push(...jsArgs);
 
   if (format === 'mp3' || format === 'opus' || format === 'm4a' || format === 'wav' || format === 'flac') {
     args.push('--extract-audio', '--audio-format', format);
