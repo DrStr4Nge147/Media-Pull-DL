@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, session } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, session, Tray } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
@@ -14,6 +14,8 @@ if (process.platform === 'win32') {
 
 
 const activeDownloads = new Map(); // id => child process
+let tray = null;
+let isQuitting = false;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,6 +63,14 @@ const createWindow = async () => {
     frame: false,
     // On Windows, frame: false is enough for a custom title bar.
     // content will extend into the title bar area automatically.
+  });
+
+  win.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      win.webContents.send('close-requested');
+    }
+    return false;
   });
 
   win.on('maximize', () => {
@@ -112,7 +122,22 @@ ipcMain.handle('window-maximize', (event) => {
 });
 
 ipcMain.handle('window-close', (event) => {
-  BrowserWindow.fromWebContents(event.sender)?.close();
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    win.close();
+  }
+});
+
+ipcMain.handle('app-force-quit', () => {
+  isQuitting = true;
+  app.quit();
+});
+
+ipcMain.handle('minimize-to-tray', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    win.hide();
+  }
 });
 
 ipcMain.handle('set-background-color', (event, color) => {
@@ -675,9 +700,36 @@ const cleanupTempInstallers = async () => {
   }
 };
 
+const createTray = (win) => {
+  if (tray) return;
+
+  tray = new Tray(getAssetPath('logo.ico'));
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Restore',
+      click: () => win.show()
+    },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setToolTip(`Media-Pull DL v${appVersion}`);
+  tray.setContextMenu(contextMenu);
+
+  tray.on('double-click', () => {
+    win.show();
+  });
+};
+
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   createWindow().then((win) => {
+    createTray(win);
     // Setup periodic checks (every 30 minutes)
     setInterval(() => {
       const windows = BrowserWindow.getAllWindows();
@@ -699,11 +751,19 @@ app.whenReady().then(() => {
 });
 
 app.on('activate', async () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    await createWindow();
+  const windows = BrowserWindow.getAllWindows();
+  if (windows.length === 0) {
+    const win = await createWindow();
+    createTray(win);
+  } else {
+    windows[0].show();
   }
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin') {
+    if (isQuitting) {
+      app.quit();
+    }
+  }
 });

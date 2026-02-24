@@ -85,6 +85,7 @@ const App: React.FC = () => {
     message: '',
     onConfirm: () => { }
   });
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
 
   // Update detection
@@ -622,6 +623,42 @@ const App: React.FC = () => {
     setCurrentIndex(-1);
   };
 
+  const getActiveActivity = useCallback(() => {
+    const activeDownloads = queue.filter(i => i.status === DownloadStatus.DOWNLOADING).length;
+    const pendingDownloads = queue.filter(i => i.status === DownloadStatus.PENDING).length;
+
+    const activities = [];
+    if (activeDownloads > 0) activities.push(`${activeDownloads} active download${activeDownloads > 1 ? 's' : ''}`);
+    if (isProcessing && pendingDownloads > 0) activities.push(`${pendingDownloads} item${pendingDownloads > 1 ? 's' : ''} in queue`);
+    if (isUpdating) activities.push('Core engine update in progress');
+    if (isDownloadingApp) activities.push('App update download in progress');
+
+    return activities;
+  }, [queue, isProcessing, isUpdating, isDownloadingApp]);
+
+  const handleCloseAttempt = useCallback(() => {
+    const activities = getActiveActivity();
+    if (activities.length > 0) {
+      setShowExitConfirm(true);
+    } else {
+      const w = window as any;
+      if (w.appForceQuit) {
+        w.appForceQuit();
+      } else {
+        w.windowControls?.close();
+      }
+    }
+  }, [getActiveActivity]);
+
+  useEffect(() => {
+    const w = window as any;
+    if (w.onCloseRequested) {
+      w.onCloseRequested(() => {
+        handleCloseAttempt();
+      });
+    }
+  }, [handleCloseAttempt]);
+
 
   const totalItems = queue.length;
   const completedItems = queue.filter(i => i.status === DownloadStatus.COMPLETED).length;
@@ -630,6 +667,13 @@ const App: React.FC = () => {
     <div className="h-full flex flex-col w-full overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <div className="flex justify-end h-8 md:h-10 shrink-0 select-none" style={{ WebkitAppRegion: 'drag' } as any}>
         <div className="flex items-stretch" style={{ WebkitAppRegion: 'no-drag' } as any}>
+          <button
+            onClick={() => (window as any).minimizeToTray()}
+            className="w-10 md:w-12 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white transition-colors"
+            title="Minimize to Tray"
+          >
+            <i className="fa-solid fa-inbox text-xs"></i>
+          </button>
           <button
             onClick={() => (window as any).windowControls?.minimize()}
             className="w-10 md:w-12 h-full flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white transition-colors"
@@ -649,7 +693,7 @@ const App: React.FC = () => {
             )}
           </button>
           <button
-            onClick={() => (window as any).windowControls?.close()}
+            onClick={handleCloseAttempt}
             className="w-11 md:w-12 h-full flex items-center justify-center text-slate-500 hover:bg-red-600 hover:text-white transition-colors"
             title="Close"
           >
@@ -1157,6 +1201,57 @@ const App: React.FC = () => {
             <div>
               <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 tracking-tight">Settings Applied</p>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] font-black">Preferences Synchronized</p>
+            </div>
+          </div>
+        )}
+
+        {/* Exit Confirmation Dialog */}
+        {showExitConfirm && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/10 dark:bg-slate-950/60 backdrop-blur-md animate-fadeIn">
+            <div className="bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 w-[90%] max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl p-8 text-center animate-scaleIn">
+              <div className="w-20 h-20 bg-amber-500/10 dark:bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-500 border-2 border-amber-500/30">
+                <i className="fa-solid fa-triangle-exclamation text-4xl"></i>
+              </div>
+              <h3 className="text-2xl font-black mb-4 text-slate-900 dark:text-white tracking-tight">Active Activity Detected</h3>
+              <p className="text-slate-600 dark:text-slate-400 mb-6 leading-relaxed text-sm">
+                The application is currently performing the following tasks:
+                <ul className="mt-4 space-y-2 font-bold text-slate-800 dark:text-slate-200">
+                  {getActiveActivity().map((a, i) => (
+                    <li key={i} className="flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-950/50 py-2 px-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]"></span>
+                      {a}
+                    </li>
+                  ))}
+                </ul>
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    (window as any).minimizeToTray();
+                    setShowExitConfirm(false);
+                  }}
+                  className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-2xl font-black hover:bg-slate-800 dark:hover:bg-slate-200 transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
+                >
+                  <i className="fa-solid fa-tray"></i>
+                  Minimize to Tray
+                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => (window as any).appForceQuit()}
+                    className="py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 border border-red-500/30"
+                  >
+                    <i className="fa-solid fa-power-off"></i>
+                    Exit Anyway
+                  </button>
+                  <button
+                    onClick={() => setShowExitConfirm(false)}
+                    className="py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <i className="fa-solid fa-xmark"></i>
+                    Cancel
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

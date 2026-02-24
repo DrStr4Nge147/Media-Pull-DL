@@ -127,6 +127,18 @@ contextBridge.exposeInMainWorld('factoryReset', () => {
   return ipcRenderer.invoke('factory-reset');
 });
 
+contextBridge.exposeInMainWorld('appForceQuit', () => {
+  return ipcRenderer.invoke('app-force-quit');
+});
+
+contextBridge.exposeInMainWorld('minimizeToTray', () => {
+  return ipcRenderer.invoke('minimize-to-tray');
+});
+
+contextBridge.exposeInMainWorld('onCloseRequested', (callback) => {
+  ipcRenderer.on('close-requested', () => callback());
+});
+
 contextBridge.exposeInMainWorld('windowControls', {
   minimize: () => ipcRenderer.invoke('window-minimize'),
   maximize: () => ipcRenderer.invoke('window-maximize'),
