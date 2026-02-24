@@ -6,6 +6,7 @@ import ActivityLog from './components/ActivityLog';
 import HistoryPage from './components/HistoryPage';
 import SettingsModal from './components/SettingsModal';
 import ConfirmationModal from './components/ConfirmationModal';
+import FloatingProgress from './components/FloatingProgress';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -604,23 +605,7 @@ const App: React.FC = () => {
 
 
   const resetView = () => {
-    if (isProcessing) {
-      setShowConfirmModal({
-        show: true,
-        title: 'Exit Progress?',
-        message: 'A download is currently in progress. Exiting to the menu will stop monitoring this session. Continue?',
-        onConfirm: () => {
-          setViewMode(null);
-          setIsProcessing(false);
-          setCurrentIndex(-1);
-          setShowConfirmModal(prev => ({ ...prev, show: false }));
-        }
-      });
-      return;
-    }
     setViewMode(null);
-    setIsProcessing(false);
-    setCurrentIndex(-1);
   };
 
   const getActiveActivity = useCallback(() => {
@@ -1254,6 +1239,14 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Floating Progress Overlay (Mini Player) */}
+        {(viewMode === null || viewMode === 'HISTORY') && (
+          <FloatingProgress
+            items={queue}
+            onClick={() => setViewMode(queue.length > 1 ? 'QUEUE' : 'SINGLE')}
+          />
         )}
       </div>
     </div>
