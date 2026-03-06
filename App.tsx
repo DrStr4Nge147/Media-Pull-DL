@@ -24,7 +24,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   stickyReferer: '',
   stickyExtraArgs: '',
   isRefererSticky: false,
-  isExtraArgsSticky: false
+  isExtraArgsSticky: false,
+  useNativeDownloader: false
 };
 
 const App: React.FC = () => {
@@ -68,7 +69,21 @@ const App: React.FC = () => {
   const [coreUpdateError, setCoreUpdateError] = useState<string | null>(null);
   const [history, setHistory] = useState<DownloadItem[]>(() => {
     const saved = localStorage.getItem('yt_dlp_history');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Ensure all items have an ID
+          return parsed.map(item => ({
+            ...item,
+            id: item.id || uuidv4()
+          }));
+        }
+      } catch (e) {
+        console.error('Failed to parse history:', e);
+      }
+    }
+    return [];
   });
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
   const [appUpdateInfo, setAppUpdateInfo] = useState<{ current: string; latest: string; url: string; downloadUrl?: string; assetName?: string; isPortable?: boolean } | null>(null);
@@ -421,7 +436,7 @@ const App: React.FC = () => {
       try {
         await realYtDlpDownload(item);
         updateItemStatus(item.id, DownloadStatus.COMPLETED);
-        setHistory(prev => [{ ...item, status: DownloadStatus.COMPLETED, timestamp: Date.now() }, ...prev]);
+        setHistory(prev => [{ ...item, id: uuidv4(), status: DownloadStatus.COMPLETED, timestamp: Date.now() }, ...prev]);
         // Send notification
         const w = window as any;
         if (typeof w.sendNotification === 'function') {
@@ -429,8 +444,27 @@ const App: React.FC = () => {
         }
       } catch (e) {
         updateItemLogsSmart(item.id, `[Error] ${e instanceof Error ? e.message : String(e)}`);
+
+        // Auto-retry logic
+        if (item.autoRetry) {
+          updateItemLogsSmart(item.id, `[System] Auto-retrying download...`);
+          updateItemStatus(item.id, DownloadStatus.DOWNLOADING);
+          try {
+            await realYtDlpDownload(item);
+            updateItemStatus(item.id, DownloadStatus.COMPLETED);
+            setHistory(prev => [{ ...item, id: uuidv4(), status: DownloadStatus.COMPLETED, timestamp: Date.now() }, ...prev]);
+            const w2 = window as any;
+            if (typeof w2.sendNotification === 'function') {
+              w2.sendNotification('Download Complete (Retry)', `Successfully downloaded: ${item.filename}`);
+            }
+            return;
+          } catch (retryErr) {
+            updateItemLogsSmart(item.id, `[Error] Auto-retry also failed: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`);
+          }
+        }
+
         updateItemStatus(item.id, DownloadStatus.FAILED);
-        setHistory(prev => [{ ...item, status: DownloadStatus.FAILED, timestamp: Date.now() }, ...prev]);
+        setHistory(prev => [{ ...item, id: uuidv4(), status: DownloadStatus.FAILED, timestamp: Date.now() }, ...prev]);
         // Send notification
         const w = window as any;
         if (typeof w.sendNotification === 'function') {
@@ -477,7 +511,7 @@ const App: React.FC = () => {
         await realYtDlpDownload(item);
         updateItemStatus(item.id, DownloadStatus.COMPLETED);
         // Add to history
-        setHistory(prev => [{ ...item, status: DownloadStatus.COMPLETED, timestamp: Date.now() }, ...prev]);
+        setHistory(prev => [{ ...item, id: uuidv4(), status: DownloadStatus.COMPLETED, timestamp: Date.now() }, ...prev]);
         // Send notification
         const w = window as any;
         if (typeof w.sendNotification === 'function') {
@@ -487,9 +521,29 @@ const App: React.FC = () => {
         processNext(index + 1);
       } catch (e) {
         updateItemLogsSmart(item.id, `[Error] ${e instanceof Error ? e.message : String(e)}`);
+
+        // Auto-retry logic
+        if (item.autoRetry) {
+          updateItemLogsSmart(item.id, `[System] Auto-retrying download...`);
+          updateItemStatus(item.id, DownloadStatus.DOWNLOADING);
+          try {
+            await realYtDlpDownload(item);
+            updateItemStatus(item.id, DownloadStatus.COMPLETED);
+            setHistory(prev => [{ ...item, id: uuidv4(), status: DownloadStatus.COMPLETED, timestamp: Date.now() }, ...prev]);
+            const w2 = window as any;
+            if (typeof w2.sendNotification === 'function') {
+              w2.sendNotification('Download Complete (Retry)', `Successfully downloaded: ${item.filename}`);
+            }
+            processNext(index + 1);
+            return;
+          } catch (retryErr) {
+            updateItemLogsSmart(item.id, `[Error] Auto-retry also failed: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`);
+          }
+        }
+
         updateItemStatus(item.id, DownloadStatus.FAILED);
         // Add to history even on failure
-        setHistory(prev => [{ ...item, status: DownloadStatus.FAILED, timestamp: Date.now() }, ...prev]);
+        setHistory(prev => [{ ...item, id: uuidv4(), status: DownloadStatus.FAILED, timestamp: Date.now() }, ...prev]);
         // Send notification
         const w = window as any;
         if (typeof w.sendNotification === 'function') {
@@ -1010,7 +1064,7 @@ const App: React.FC = () => {
                 }
               });
             }}
-            onRemove={(id) => setHistory(prev => prev.filter(i => i.id !== id))}
+            onRemove={(idToRemove) => setHistory(prev => prev.filter(item => item.id !== idToRemove))}
             onRetry={retryHistoryItem}
           />
 

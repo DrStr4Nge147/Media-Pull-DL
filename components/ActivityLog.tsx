@@ -10,17 +10,32 @@ const ActivityLog: React.FC<Props> = ({ item }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
 
+  const isNewItem = useRef(true);
+  const lastItemId = useRef(item.id);
+
   useEffect(() => {
+    if (lastItemId.current !== item.id) {
+      isNewItem.current = true;
+      lastItemId.current = item.id;
+    }
+
     const container = scrollContainerRef.current;
     if (container) {
       const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
-      if (isAtBottom) {
+      if (isAtBottom || isNewItem.current) {
         requestAnimationFrame(() => {
           container.scrollTop = container.scrollHeight;
         });
+
+        if (isNewItem.current) {
+          // Reset the flag after a short delay to allow layout to settle
+          setTimeout(() => {
+            isNewItem.current = false;
+          }, 100);
+        }
       }
     }
-  }, [item.logs]);
+  }, [item.logs, item.id]);
 
   const handleCopy = async () => {
     const logText = item.logs.join('\n');
@@ -45,8 +60,8 @@ const ActivityLog: React.FC<Props> = ({ item }) => {
           <button
             onClick={handleCopy}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border ${copied
-                ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500'
-                : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-blue-500 hover:border-blue-500/50'
+              ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500'
+              : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-blue-500 hover:border-blue-500/50'
               }`}
           >
             <i className={`fa-solid ${copied ? 'fa-check' : 'fa-copy'}`}></i>

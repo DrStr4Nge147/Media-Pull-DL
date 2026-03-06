@@ -138,6 +138,22 @@ const SettingsModal: React.FC<Props> = ({ settings, onSave, onClose }) => {
                 </button>
               </div>
 
+              <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <div>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">Always Use Native Downloader</p>
+                  <p className="text-xs text-slate-500">Disable FFmpeg-based downloading for HLS/m3u8 streams. Use only if you experience issues with FFmpeg mode.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLocalSettings(prev => ({ ...prev, useNativeDownloader: !prev.useNativeDownloader }))}
+                  className={`group relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none shrink-0 ${localSettings.useNativeDownloader ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 shadow-sm ${localSettings.useNativeDownloader ? 'translate-x-6' : 'translate-x-1'}`}
+                  />
+                </button>
+              </div>
+
               <div className="flex items-center justify-between bg-red-500/5 p-4 rounded-2xl border border-red-500/10">
                 <div>
                   <p className="text-sm font-bold text-red-600 dark:text-red-400">Factory Reset</p>

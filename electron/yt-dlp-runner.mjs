@@ -445,7 +445,7 @@ export const getPlaylistMetadata = async (url) => {
   });
 };
 
-export const runYtDlp = async ({ url, referer, destination, filename, format, resolution, extraArgs, sponsorBlock, sponsorBlockCategories, noPlaylist }, onProgress, onLog, onCreated) => {
+export const runYtDlp = async ({ url, referer, destination, filename, format, resolution, extraArgs, sponsorBlock, sponsorBlockCategories, noPlaylist, useNativeDownloader }, onProgress, onLog, onCreated) => {
   const resolvedDest = resolveDestination(destination);
   await fs.mkdir(resolvedDest, { recursive: true });
 
@@ -500,10 +500,12 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
 
   // HLS/m3u8 Optimization: use ffmpeg downloader for better reliability with segments
   // This helps avoid the "FixupM3u8" failures after 100% download.
-  if (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('master.m3u8') || url.toLowerCase().includes('playlist.m3u8')) {
+  // Skipped if the user explicitly enabled "Always Use Native Downloader" in settings.
+  if (!useNativeDownloader && (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('master.m3u8') || url.toLowerCase().includes('playlist.m3u8'))) {
     args.push('--downloader', 'ffmpeg');
     args.push('--concurrent-fragments', '5');
     args.push('--hls-use-mpegts');
+    onLog('[System] Using FFmpeg downloader for HLS stream. Disable in Settings if needed.');
   }
 
   // Always prefer bundled ffmpeg if it exists to ensure consistency
@@ -526,37 +528,73 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
   return new Promise((resolve, reject) => {
     onLog(`[yt-dlp] Starting: ${ytDlpExecutable} ${args.join(' ')}`);
 
-    const child = spawn(ytDlpExecutable, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(ytDlpExecutable, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
 
     if (onCreated) onCreated(child);
 
     let lastProgress = null;
+    let durationSeconds = null;
+
+    const timeToSeconds = (timeStr) => {
+      const parts = timeStr.trim().split(':').map(parseFloat);
+      if (parts.length === 3) {
+        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      }
+      return 0;
+    };
+
+    // Shared line parser — handles both yt-dlp percentage and FFmpeg time-based progress
+    const parseLine = (line) => {
+      if (!line.trim()) return;
+      onLog(`[yt-dlp] ${line}`);
+
+      // 1. Standard yt-dlp percent parsing
+      if (line.includes('[download]')) {
+        const percentMatch = line.match(/\[download\][^\d]*([\d.]+)%/);
+        if (percentMatch) {
+          const percent = parseFloat(percentMatch[1]);
+          if (!Number.isNaN(percent)) {
+            onProgress(Math.min(percent, 100));
+            lastProgress = percent;
+          }
+        }
+      }
+
+      // 2. FFmpeg duration detection (appears in both stdout/stderr)
+      if (line.includes('Duration:')) {
+        const durationMatch = line.match(/Duration:\s*(\d{2}:\d{2}:\d{2}(?:\.\d+)?)/);
+        if (durationMatch) {
+          durationSeconds = timeToSeconds(durationMatch[1]);
+        }
+      }
+
+      // 3. FFmpeg time-based progress (primarily from stderr)
+      if (line.includes('time=')) {
+        const timeMatch = line.match(/time=(\d{2}:\d{2}:\d{2}(?:\.\d+)?)/);
+        if (timeMatch && durationSeconds && durationSeconds > 0) {
+          const currentSeconds = timeToSeconds(timeMatch[1]);
+          const percent = (currentSeconds / durationSeconds) * 100;
+          const sanitizedPercent = Math.min(Math.max(percent, 0), 100);
+          onProgress(sanitizedPercent);
+          lastProgress = sanitizedPercent;
+        }
+      }
+    };
 
     child.stdout.on('data', (data) => {
       const lines = data.toString().split('\n');
       for (const line of lines) {
-        if (!line.trim()) continue;
-        onLog(`[yt-dlp] ${line}`);
-
-        // Progress parsing (yt-dlp formats vary, can include "~" and "(frag x/y)")
-        if (line.includes('[download]')) {
-          const percentMatch = line.match(/\[download\][^\d]*([\d.]+)%/);
-          if (percentMatch) {
-            const percent = parseFloat(percentMatch[1]);
-            if (!Number.isNaN(percent)) {
-              onProgress(Math.min(percent, 100));
-              lastProgress = percent;
-            }
-          }
-        }
+        parseLine(line);
       }
     });
 
     child.stderr.on('data', (data) => {
       const lines = data.toString().split('\n');
       for (const line of lines) {
-        if (!line.trim()) continue;
-        onLog(`[yt-dlp] ${line}`);
+        parseLine(line);
       }
     });
 

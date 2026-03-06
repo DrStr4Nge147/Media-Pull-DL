@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, session, Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, session, Tray, Notification } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
+import { execSync as execSyncFn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runYtDlp, getYtDlpVersion, updateYtDlp, getVideoMetadata, getPlaylistMetadata, bootstrapYtDlp } from './yt-dlp-runner.mjs';
 
@@ -137,6 +138,19 @@ ipcMain.handle('minimize-to-tray', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) {
     win.hide();
+
+    if (Notification.isSupported()) {
+      const notification = new Notification({
+        title: 'Media-Pull DL',
+        body: 'App minimized to system tray and is still running.',
+        silent: true,
+        icon: getAssetPath('logo.png'),
+      });
+      notification.on('click', () => {
+        win.show();
+      });
+      notification.show();
+    }
   }
 });
 
@@ -188,7 +202,6 @@ ipcMain.handle('open-external', async (_event, url) => {
 });
 
 ipcMain.handle('send-notification', async (_event, { title, body }) => {
-  const { Notification } = await import('electron');
   if (Notification.isSupported()) {
     const notification = new Notification({
       title,
@@ -225,8 +238,10 @@ ipcMain.handle('pause-download', async (_event, id) => {
     if (process.platform === 'win32') {
       const { exec } = await import('node:child_process');
       return new Promise((resolve) => {
-        // Suspend threads using PowerShell
-        exec(`powershell -command "$p = Get-Process -Id ${child.pid}; $p.Threads | ForEach-Object { try { $_.Suspend() } catch {} }"`, (err) => {
+        // Suspend the process and all its children
+        const psCommand = `Get-CimInstance Win32_Process -Filter "ParentProcessId = ${child.pid}" | ForEach-Object { (Get-Process -Id $_.ProcessId).Threads | ForEach-Object { try { $_.Suspend() } catch {} } }; (Get-Process -Id ${child.pid}).Threads | ForEach-Object { try { $_.Suspend() } catch {} }`;
+        exec(`powershell -command "${psCommand}"`, (err) => {
+          if (err) console.error(`[IPC] Pause error for ${child.pid}:`, err);
           resolve(!err);
         });
       });
@@ -244,8 +259,10 @@ ipcMain.handle('resume-download', async (_event, id) => {
     if (process.platform === 'win32') {
       const { exec } = await import('node:child_process');
       return new Promise((resolve) => {
-        // Resume threads using PowerShell
-        exec(`powershell -command "$p = Get-Process -Id ${child.pid}; $p.Threads | ForEach-Object { try { $_.Resume() } catch {} }"`, (err) => {
+        // Resume the process and all its children
+        const psCommand = `Get-CimInstance Win32_Process -Filter "ParentProcessId = ${child.pid}" | ForEach-Object { (Get-Process -Id $_.ProcessId).Threads | ForEach-Object { try { $_.Resume() } catch {} } }; (Get-Process -Id ${child.pid}).Threads | ForEach-Object { try { $_.Resume() } catch {} }`;
+        exec(`powershell -command "${psCommand}"`, (err) => {
+          if (err) console.error(`[IPC] Resume error for ${child.pid}:`, err);
           resolve(!err);
         });
       });
@@ -260,14 +277,31 @@ ipcMain.handle('resume-download', async (_event, id) => {
 ipcMain.handle('stop-download', async (_event, id) => {
   const child = activeDownloads.get(id);
   if (child && !child.killed) {
-    if (process.platform === 'win32') {
-      const { spawn: spawnChild } = await import('node:child_process');
-      spawnChild('taskkill', ['/pid', child.pid, '/f', '/t']);
-    } else {
-      child.kill('SIGTERM');
+    console.log(`[IPC] Stopping download ${id} (PID: ${child.pid})`);
+    try {
+      if (process.platform === 'win32') {
+        const { exec } = await import('node:child_process');
+        await new Promise((resolve) => {
+          // /f = force, /t = tree (kill children too)
+          exec(`taskkill /pid ${child.pid} /f /t`, (err) => {
+            if (err) console.error(`[IPC] taskkill error for ${child.pid}:`, err);
+            resolve();
+          });
+        });
+      } else {
+        // Kill the entire process group
+        try {
+          process.kill(-child.pid, 'SIGKILL');
+        } catch {
+          child.kill('SIGKILL');
+        }
+      }
+      activeDownloads.delete(id);
+      return true;
+    } catch (e) {
+      console.error(`[IPC] Failed to stop download ${id}:`, e);
+      return false;
     }
-    activeDownloads.delete(id);
-    return true;
   }
   return false;
 });
@@ -760,10 +794,65 @@ app.on('activate', async () => {
   }
 });
 
+const killAllActiveDownloads = () => {
+  if (activeDownloads.size === 0) return;
+  console.log(`[Cleanup] Killing ${activeDownloads.size} active download(s)...`);
+
+  for (const [id, child] of activeDownloads.entries()) {
+    try {
+      if (child && !child.killed) {
+        if (process.platform === 'win32') {
+          try {
+            execSyncFn(`taskkill /pid ${child.pid} /f /t`, { stdio: 'ignore' });
+          } catch { /* already dead */ }
+        } else {
+          try {
+            process.kill(-child.pid, 'SIGKILL');
+          } catch {
+            child.kill('SIGKILL');
+          }
+        }
+        console.log(`[Cleanup] Killed download ${id} (PID: ${child.pid})`);
+      }
+    } catch (e) {
+      console.error(`[Cleanup] Error killing ${id}:`, e);
+    }
+  }
+  activeDownloads.clear();
+};
+
+app.on('before-quit', () => {
+  isQuitting = true;
+  killAllActiveDownloads();
+});
+
+app.on('will-quit', () => {
+  killAllActiveDownloads();
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     if (isQuitting) {
+      killAllActiveDownloads();
       app.quit();
     }
   }
+});
+
+// Safety net: if Node process exits unexpectedly, still try to clean up
+process.on('exit', () => {
+  killAllActiveDownloads();
+});
+
+// Dev mode: handle Ctrl+C / SIGTERM from concurrently / terminal kill
+process.on('SIGINT', () => {
+  console.log('[Cleanup] SIGINT received, cleaning up...');
+  killAllActiveDownloads();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('[Cleanup] SIGTERM received, cleaning up...');
+  killAllActiveDownloads();
+  process.exit(0);
 });

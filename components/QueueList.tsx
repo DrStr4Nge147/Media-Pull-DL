@@ -167,8 +167,17 @@ const QueueList: React.FC<Props> = ({
                 </div>
                 {item.status === DownloadStatus.DOWNLOADING && (
                   <div className="flex justify-between text-[10px] font-mono text-blue-600 dark:text-blue-400 px-1">
-                    <span className="font-bold tracking-widest uppercase opacity-70">Downloading</span>
+                    <span className="font-bold tracking-widest uppercase opacity-70 flex items-center">
+                      Downloading
+                      <span className="animate-dots w-4 inline-block"></span>
+                    </span>
                     <span className="font-black tracking-widest">{Math.round(item.progress)}%</span>
+                  </div>
+                )}
+                {item.status === DownloadStatus.DOWNLOADING && !item.useNativeDownloader && item.url.toLowerCase().includes('.m3u8') && (
+                  <div className="flex items-center gap-1.5 mt-1 px-1">
+                    <i className="fa-solid fa-circle-info text-[9px] text-amber-500/70"></i>
+                    <span className="text-[9px] text-amber-600/70 dark:text-amber-400/60 leading-tight">FFmpeg mode — progress may fluctuate. Check terminal for actual status.</span>
                   </div>
                 )}
                 {item.status === DownloadStatus.PAUSED && (
@@ -196,8 +205,9 @@ const StatusBadge: React.FC<{ status: DownloadStatus }> = ({ status }) => {
   };
 
   return (
-    <span className={`text-[10px] px-2 py-0.5 rounded border uppercase font-bold tracking-tighter ${styles[status]}`}>
+    <span className={`text-[10px] px-2 py-0.5 rounded border uppercase font-bold tracking-tighter flex items-center gap-0.5 ${styles[status]}`}>
       {status}
+      {status === DownloadStatus.DOWNLOADING && <span className="animate-dots w-2 inline-block"></span>}
     </span>
   );
 };

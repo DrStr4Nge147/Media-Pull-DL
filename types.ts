@@ -23,6 +23,8 @@ export interface DownloadItem {
   sponsorBlock?: boolean;
   sponsorBlockCategories?: string[];
   noPlaylist?: boolean;
+  useNativeDownloader?: boolean;
+  autoRetry?: boolean;
   timestamp: number;
 }
 
@@ -37,6 +39,7 @@ export interface AppSettings {
   stickyExtraArgs?: string;
   isRefererSticky?: boolean;
   isExtraArgsSticky?: boolean;
+  useNativeDownloader?: boolean;
 }
 
 export interface Preset {
