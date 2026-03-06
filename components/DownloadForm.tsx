@@ -50,7 +50,6 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
   const [availableFormats, setAvailableFormats] = useState<string[]>(['mp4', 'mkv', 'webm', 'mp3', 'm4a', 'opus']);
   const [sponsorBlock, setSponsorBlock] = useState(false);
   const [sponsorBlockCategories, setSponsorBlockCategories] = useState<string[]>(['music_offtopic']);
-  const [autoRetry, setAutoRetry] = useState(false);
 
   const videoFormats = availableFormats.filter(ext => !AUDIO_EXTENSIONS.includes(ext.toLowerCase()));
   const audioFormats = availableFormats.filter(ext => AUDIO_EXTENSIONS.includes(ext.toLowerCase()));
@@ -193,7 +192,6 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
         sponsorBlock,
         sponsorBlockCategories: sponsorBlock ? sponsorBlockCategories : [],
         useNativeDownloader: settings.useNativeDownloader,
-        autoRetry,
       }));
       onAddMultiple(items);
     } else {
@@ -208,7 +206,6 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
         sponsorBlock,
         sponsorBlockCategories: sponsorBlock ? sponsorBlockCategories : [],
         useNativeDownloader: settings.useNativeDownloader,
-        autoRetry,
       });
     }
 
@@ -709,19 +706,6 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
                 ))}
               </div>
             )}
-
-            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200 dark:border-slate-700/50 transition-all">
-              <button
-                type="button"
-                onClick={() => setAutoRetry(!autoRetry)}
-                className={`w-10 h-5 rounded-full relative transition-all ${autoRetry ? 'bg-blue-500 shadow-lg shadow-blue-500/30' : 'bg-slate-300 dark:bg-slate-700'}`}
-              >
-                <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all shadow-sm ${autoRetry ? 'left-6' : 'left-1'}`}></div>
-              </button>
-              <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest cursor-pointer select-none" onClick={() => setAutoRetry(!autoRetry)}>
-                Auto-Retry On Failure
-              </label>
-            </div>
           </div>
         </div>
 

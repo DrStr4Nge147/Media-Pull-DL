@@ -25,7 +25,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   stickyExtraArgs: '',
   isRefererSticky: false,
   isExtraArgsSticky: false,
-  useNativeDownloader: false
+  useNativeDownloader: false,
+  autoRetry: false
 };
 
 const App: React.FC = () => {
@@ -46,8 +47,15 @@ const App: React.FC = () => {
         // Migration: Update default destination from old './YT-DLP' to new './Media-Pull DL'
         if (merged.defaultDestination === './YT-DLP') {
           merged.defaultDestination = './Media-Pull DL';
-          localStorage.setItem('yt_dlp_settings', JSON.stringify(merged));
         }
+
+        // Always reset sticky settings on startup so they clear when the app is closed
+        merged.stickyReferer = DEFAULT_SETTINGS.stickyReferer;
+        merged.stickyExtraArgs = DEFAULT_SETTINGS.stickyExtraArgs;
+        merged.isRefererSticky = DEFAULT_SETTINGS.isRefererSticky;
+        merged.isExtraArgsSticky = DEFAULT_SETTINGS.isExtraArgsSticky;
+
+        localStorage.setItem('yt_dlp_settings', JSON.stringify(merged));
         return merged;
       } catch (e) {
         console.error('Failed to parse settings:', e);
@@ -213,6 +221,11 @@ const App: React.FC = () => {
       if (typeof w.removeAllYtDlpListeners === 'function') w.removeAllYtDlpListeners();
     };
   }, []);
+
+  // Persist settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('yt_dlp_settings', JSON.stringify(settings));
+  }, [settings]);
 
   useEffect(() => {
     if (updateInfo && settings.autoUpdateCore && !isUpdating) {
@@ -446,7 +459,7 @@ const App: React.FC = () => {
         updateItemLogsSmart(item.id, `[Error] ${e instanceof Error ? e.message : String(e)}`);
 
         // Auto-retry logic
-        if (item.autoRetry) {
+        if (settings.autoRetry) {
           updateItemLogsSmart(item.id, `[System] Auto-retrying download...`);
           updateItemStatus(item.id, DownloadStatus.DOWNLOADING);
           try {
@@ -523,7 +536,7 @@ const App: React.FC = () => {
         updateItemLogsSmart(item.id, `[Error] ${e instanceof Error ? e.message : String(e)}`);
 
         // Auto-retry logic
-        if (item.autoRetry) {
+        if (settings.autoRetry) {
           updateItemLogsSmart(item.id, `[System] Auto-retrying download...`);
           updateItemStatus(item.id, DownloadStatus.DOWNLOADING);
           try {
@@ -1139,7 +1152,20 @@ const App: React.FC = () => {
                       <i className="fa-solid fa-layer-group text-slate-400"></i>
                       Batch List
                     </h3>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer group select-none">
+                        <div className="relative flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={settings.autoRetry}
+                            onChange={() => setSettings(prev => ({ ...prev, autoRetry: !prev.autoRetry }))}
+                            className="peer appearance-none w-4 h-4 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-950 checked:bg-blue-600 checked:border-blue-600 transition-all cursor-pointer"
+                          />
+                          <i className="fa-solid fa-check absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none"></i>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest group-hover:text-blue-500 transition-colors">Auto-Retry</span>
+                      </label>
+
                       <button
                         onClick={clearQueue}
                         className="text-slate-400 hover:text-red-500 transition-colors text-[10px] flex items-center gap-1.5 font-bold uppercase tracking-wider"
