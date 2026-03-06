@@ -462,13 +462,6 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
     '--newline',
   ];
 
-  // Try to use global ffmpeg first, fallback to internal if not found
-  const isGlobal = await isFfmpegAvailableGlobal();
-  if (!isGlobal) {
-    args.push('--ffmpeg-location', getBinDir());
-  }
-
-
   if (noPlaylist) {
     args.push('--no-playlist');
   }
@@ -502,6 +495,29 @@ export const runYtDlp = async ({ url, referer, destination, filename, format, re
     const categoriesToRemove = sponsorBlockCategories.filter(c => c !== 'poi_highlight');
     if (categoriesToRemove.length > 0) {
       args.push('--sponsorblock-remove', categoriesToRemove.join(','));
+    }
+  }
+
+  // HLS/m3u8 Optimization: use ffmpeg downloader for better reliability with segments
+  // This helps avoid the "FixupM3u8" failures after 100% download.
+  if (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('master.m3u8') || url.toLowerCase().includes('playlist.m3u8')) {
+    args.push('--downloader', 'ffmpeg');
+    args.push('--concurrent-fragments', '5');
+    args.push('--hls-use-mpegts');
+  }
+
+  // Always prefer bundled ffmpeg if it exists to ensure consistency
+  const binDir = getBinDir();
+  const ffmpegExecName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+  const internalFfmpeg = path.join(binDir, ffmpegExecName);
+  try {
+    await fs.access(internalFfmpeg);
+    args.push('--ffmpeg-location', internalFfmpeg);
+  } catch {
+    // If not in bin, fallback to checking global
+    const isGlobal = await isFfmpegAvailableGlobal();
+    if (!isGlobal) {
+      onLog('[System] Warning: FFmpeg not found. Post-processing may fail.');
     }
   }
 

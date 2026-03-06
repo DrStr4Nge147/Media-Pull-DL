@@ -20,7 +20,11 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: '3', name: 'Low Res (480p)', args: '-S "res:480"' }
   ],
   theme: 'dark',
-  autoUpdateCore: true
+  autoUpdateCore: true,
+  stickyReferer: '',
+  stickyExtraArgs: '',
+  isRefererSticky: false,
+  isExtraArgsSticky: false
 };
 
 const App: React.FC = () => {
@@ -585,6 +589,51 @@ const App: React.FC = () => {
     }
   };
 
+  const retryDownload = async (id: string) => {
+    setQueue(prev => {
+      const updatedQueue = prev.map(item =>
+        item.id === id
+          ? {
+            ...item,
+            status: DownloadStatus.PENDING,
+            progress: 0,
+            logs: [...item.logs, `[System] Manual retry initiated at ${new Date().toLocaleTimeString()}`]
+          }
+          : item
+      );
+
+      // If not processing, start the download process
+      if (!isProcessing) {
+        setTimeout(() => {
+          startBatchDownload(updatedQueue);
+        }, 100);
+      }
+
+      return updatedQueue;
+    });
+  };
+
+  const retryHistoryItem = (item: DownloadItem) => {
+    const newItem: DownloadItem = {
+      ...item,
+      id: uuidv4(),
+      status: DownloadStatus.PENDING,
+      progress: 0,
+      logs: [`[System] Retrying failed historical download at ${new Date().toLocaleTimeString()}`],
+      timestamp: Date.now()
+    };
+    setQueue(prev => [...prev, newItem]);
+
+    // Switch to queue view to show the retry
+    if (viewMode === 'HISTORY') {
+      setViewMode('QUEUE');
+    }
+
+    if (!isProcessing) {
+      setTimeout(() => startBatchDownload([...queue, newItem]), 100);
+    }
+  };
+
   const removeFromQueue = (id: string) => {
     setQueue(prev => prev.filter(item => item.id !== id));
   };
@@ -962,6 +1011,7 @@ const App: React.FC = () => {
               });
             }}
             onRemove={(id) => setHistory(prev => prev.filter(i => i.id !== id))}
+            onRetry={retryHistoryItem}
           />
 
         ) : (
@@ -978,6 +1028,7 @@ const App: React.FC = () => {
                   isProcessing={isProcessing || isUpdating}
                   mode={viewMode}
                   settings={settings}
+                  updateSettings={setSettings}
                   sharedDestination={sharedDestination}
                   setSharedDestination={setSharedDestination}
                   onClear={() => setSelectedItemId(null)}
@@ -1056,6 +1107,7 @@ const App: React.FC = () => {
                       onPause={pauseDownload}
                       onResume={resumeDownload}
                       onStop={stopDownload}
+                      onRetry={retryDownload}
                       selectedId={selectedItemId}
                       onSelect={(id) => setSelectedItemId(prev => prev === id ? null : id)}
                     />

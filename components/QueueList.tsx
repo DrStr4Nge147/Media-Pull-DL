@@ -9,6 +9,7 @@ interface Props {
   onPause?: (id: string) => void;
   onResume?: (id: string) => void;
   onStop?: (id: string) => void;
+  onRetry?: (id: string) => void;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
 }
@@ -20,6 +21,7 @@ const QueueList: React.FC<Props> = ({
   onPause,
   onResume,
   onStop,
+  onRetry,
   selectedId,
   onSelect
 }) => {
@@ -119,6 +121,19 @@ const QueueList: React.FC<Props> = ({
                       <i className="fa-solid fa-stop"></i>
                     </button>
                   </div>
+                )}
+                {item.status === DownloadStatus.FAILED && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRetry?.(item.id);
+                    }}
+                    className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg transition-all flex items-center gap-1.5 font-bold shadow-sm active:scale-95"
+                    title="Retry Download"
+                  >
+                    <i className="fa-solid fa-arrows-rotate"></i>
+                    Retry
+                  </button>
                 )}
                 <button
                   onClick={(e) => {

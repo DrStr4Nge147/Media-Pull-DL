@@ -6,9 +6,10 @@ interface Props {
     history: DownloadItem[];
     onClear: () => void;
     onRemove: (id: string) => void;
+    onRetry?: (item: DownloadItem) => void;
 }
 
-const HistoryPage: React.FC<Props> = ({ history, onClear, onRemove }) => {
+const HistoryPage: React.FC<Props> = ({ history, onClear, onRemove, onRetry }) => {
     if (history.length === 0) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center p-20 animate-fadeIn">
@@ -98,6 +99,16 @@ const HistoryPage: React.FC<Props> = ({ history, onClear, onRemove }) => {
                                         <i className="fa-solid fa-folder-open text-xs"></i>
                                         <span className="sm:hidden text-[10px] font-bold uppercase tracking-widest">Open Folder</span>
                                     </button>
+                                    {item.status === DownloadStatus.FAILED && (
+                                        <button
+                                            onClick={() => onRetry?.(item)}
+                                            className="flex-1 sm:flex-none p-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all flex items-center justify-center gap-2 sm:aspect-square shadow-lg shadow-indigo-900/20"
+                                            title="Retry download"
+                                        >
+                                            <i className="fa-solid fa-arrows-rotate text-xs"></i>
+                                            <span className="sm:hidden text-[10px] font-bold uppercase tracking-widest">Retry</span>
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => onRemove(item.id)}
                                         className="flex-1 sm:flex-none p-4 rounded-2xl bg-red-50 dark:bg-red-500/10 hover:bg-red-500 text-red-600 dark:text-red-500 hover:text-white transition-all flex items-center justify-center gap-2 sm:aspect-square border border-red-100 dark:border-transparent"

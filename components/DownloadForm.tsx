@@ -8,6 +8,7 @@ interface Props {
   isProcessing: boolean;
   mode: ViewMode;
   settings: AppSettings;
+  updateSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
   sharedDestination: string;
   setSharedDestination: (dest: string) => void;
   onClear?: () => void;
@@ -15,14 +16,27 @@ interface Props {
 
 const AUDIO_EXTENSIONS = ['mp3', 'm4a', 'wav', 'flac', 'aac', 'opus', 'ogg', 'm4r'];
 
-const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mode, settings, sharedDestination, setSharedDestination, onClear }) => {
+const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mode, settings, updateSettings, sharedDestination, setSharedDestination, onClear }) => {
   const [url, setUrl] = useState('');
-  const [referer, setReferer] = useState('');
+  const [referer, setReferer] = useState(settings.isRefererSticky ? settings.stickyReferer || '' : '');
   const [filename, setFilename] = useState('');
-  const [extraArgs, setExtraArgs] = useState('');
+  const [extraArgs, setExtraArgs] = useState(settings.isExtraArgsSticky ? settings.stickyExtraArgs || '' : '');
   const [format, setFormat] = useState('mp4');
   const [resolution, setResolution] = useState('best');
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const [isRefererSticky, setIsRefererSticky] = useState(settings.isRefererSticky || false);
+  const [isExtraArgsSticky, setIsExtraArgsSticky] = useState(settings.isExtraArgsSticky || false);
+
+  useEffect(() => {
+    updateSettings(prev => ({
+      ...prev,
+      isRefererSticky,
+      isExtraArgsSticky,
+      stickyReferer: isRefererSticky ? referer : prev.stickyReferer,
+      stickyExtraArgs: isExtraArgsSticky ? extraArgs : prev.stickyExtraArgs,
+    }));
+  }, [isRefererSticky, isExtraArgsSticky, referer, extraArgs]);
 
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
   const [fetchingPlaylist, setFetchingPlaylist] = useState(false);
@@ -200,10 +214,9 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
 
   const clearForm = () => {
     setUrl('');
-    setReferer('');
+    if (!isRefererSticky) setReferer('');
     setFilename('');
-    setFilename('');
-    setExtraArgs('');
+    if (!isExtraArgsSticky) setExtraArgs('');
     setSponsorBlock(false);
     setSponsorBlockCategories(['music_offtopic']);
     setMetadata(null);
@@ -585,7 +598,18 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
           {showAdvanced && (
             <div className="space-y-4 animate-slideDown">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 ml-1">Referer URL</label>
+                <div className="flex justify-between items-center mb-1 ml-1">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase">Referer URL</label>
+                  <label className="flex items-center gap-1.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={isRefererSticky}
+                      onChange={(e) => setIsRefererSticky(e.target.checked)}
+                      className="w-3 h-3 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                    />
+                    <span className="text-[9px] font-bold text-slate-400 group-hover:text-blue-500 transition-colors uppercase">Sticky</span>
+                  </label>
+                </div>
                 <div className="relative">
                   <input
                     type="text"
@@ -600,7 +624,18 @@ const DownloadForm: React.FC<Props> = ({ onAdd, onAddMultiple, isProcessing, mod
 
               <div>
                 <div className="flex justify-between items-center mb-1 ml-1">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase">Extra Arguments</label>
+                  <div className="flex items-center gap-3">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase">Extra Arguments</label>
+                    <label className="flex items-center gap-1.5 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={isExtraArgsSticky}
+                        onChange={(e) => setIsExtraArgsSticky(e.target.checked)}
+                        className="w-3 h-3 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                      />
+                      <span className="text-[9px] font-bold text-slate-400 group-hover:text-blue-500 transition-colors uppercase">Sticky</span>
+                    </label>
+                  </div>
                   <button
                     type="button"
                     onClick={() => (window as any).openExternal('https://github.com/yt-dlp/yt-dlp#usage-and-options')}

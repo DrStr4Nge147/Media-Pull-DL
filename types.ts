@@ -33,6 +33,10 @@ export interface AppSettings {
   presets: Preset[];
   theme: 'light' | 'dark';
   autoUpdateCore?: boolean;
+  stickyReferer?: string;
+  stickyExtraArgs?: string;
+  isRefererSticky?: boolean;
+  isExtraArgsSticky?: boolean;
 }
 
 export interface Preset {
