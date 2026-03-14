@@ -26,7 +26,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   isRefererSticky: false,
   isExtraArgsSticky: false,
   useNativeDownloader: false,
-  autoRetry: false
+  autoRetry: false,
+  mimicHumanDownload: true,
 };
 
 const App: React.FC = () => {
@@ -54,6 +55,11 @@ const App: React.FC = () => {
         merged.stickyExtraArgs = DEFAULT_SETTINGS.stickyExtraArgs;
         merged.isRefererSticky = DEFAULT_SETTINGS.isRefererSticky;
         merged.isExtraArgsSticky = DEFAULT_SETTINGS.isExtraArgsSticky;
+
+        // Force mimicHumanDownload to be true by default for existing users
+        if (merged.mimicHumanDownload === undefined) {
+           merged.mimicHumanDownload = true;
+        }
 
         localStorage.setItem('yt_dlp_settings', JSON.stringify(merged));
         return merged;
@@ -576,7 +582,15 @@ const App: React.FC = () => {
       throw new Error('yt-dlp runner not available (not running in Electron?)');
     }
 
-    const success = await w.runYtDlp({ ...item, id: item.id });
+    let finalExtraArgs = item.extraArgs || '';
+    if (settings.mimicHumanDownload) {
+      finalExtraArgs += ' --min-sleep-interval 2 --max-sleep-interval 6';
+    }
+    if (settings.downloadSpeedLimit) {
+      finalExtraArgs += ` --limit-rate ${settings.downloadSpeedLimit}`;
+    }
+
+    const success = await w.runYtDlp({ ...item, id: item.id, extraArgs: finalExtraArgs.trim() });
     if (!success) {
       throw new Error('Download process failed. Check the terminal for details.');
     }

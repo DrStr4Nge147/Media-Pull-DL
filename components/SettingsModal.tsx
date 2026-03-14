@@ -154,6 +154,38 @@ const SettingsModal: React.FC<Props> = ({ settings, onSave, onClose }) => {
                 </button>
               </div>
 
+              <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <div>
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">Mimic Human Download</p>
+                  <p className="text-xs text-slate-500">Adds random sleep intervals to prevent being blocked by anti-bot protections.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLocalSettings(prev => ({ ...prev, mimicHumanDownload: !prev.mimicHumanDownload }))}
+                  className={`group relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none shrink-0 ${localSettings.mimicHumanDownload ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 shadow-sm ${localSettings.mimicHumanDownload ? 'translate-x-6' : 'translate-x-1'}`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50">
+                <div className="flex-[0.7]">
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">Download Speed Limit</p>
+                  <p className="text-xs text-slate-500">Limit rate (e.g. 5M, 500K). Leave blank for unlimited.</p>
+                </div>
+                <div className="flex-[0.3]">
+                  <input
+                    type="text"
+                    placeholder="e.g. 5M"
+                    value={localSettings.downloadSpeedLimit || ''}
+                    onChange={e => setLocalSettings(prev => ({ ...prev, downloadSpeedLimit: e.target.value }))}
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 dark:text-white transition-all shadow-inner text-right"
+                  />
+                </div>
+              </div>
+
               <div className="flex items-center justify-between bg-red-500/5 p-4 rounded-2xl border border-red-500/10">
                 <div>
                   <p className="text-sm font-bold text-red-600 dark:text-red-400">Factory Reset</p>

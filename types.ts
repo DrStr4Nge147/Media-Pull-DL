@@ -40,6 +40,8 @@ export interface AppSettings {
   isExtraArgsSticky?: boolean;
   useNativeDownloader?: boolean;
   autoRetry?: boolean;
+  mimicHumanDownload?: boolean;
+  downloadSpeedLimit?: string;
 }
 
 export interface Preset {
