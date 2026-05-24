@@ -135,6 +135,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   useNativeDownloader: false,
   autoRetry: false,
   mimicHumanDownload: true,
+  shutdownOnComplete: false,
 };
 
 const App: React.FC = () => {
@@ -218,6 +219,8 @@ const App: React.FC = () => {
   const [isDownloadingApp, setIsDownloadingApp] = useState(false);
   const [appDownloadError, setAppDownloadError] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
+  const settingsRef = useRef(settings);
+  const shutdownRequestedRef = useRef(false);
   const [showConfirmModal, setShowConfirmModal] = useState<{
     show: boolean;
     title: string;
@@ -341,6 +344,7 @@ const App: React.FC = () => {
   // Persist settings to localStorage
   useEffect(() => {
     localStorage.setItem('yt_dlp_settings', JSON.stringify(settings));
+    settingsRef.current = settings;
   }, [settings]);
 
   useEffect(() => {
@@ -558,12 +562,38 @@ const App: React.FC = () => {
 
   const startBatchDownload = async (currentQueue: DownloadItem[]) => {
     if (isProcessing) return;
+    shutdownRequestedRef.current = false;
     setIsProcessing(true);
 
     if (downloadStrategy === 'SEQUENTIAL' || viewMode === 'SINGLE') {
       await startSequentialDownload(currentQueue);
     } else {
       await startSimultaneousDownload(currentQueue);
+    }
+  };
+
+  const requestShutdownAfterDownloads = async () => {
+    if (!settingsRef.current.shutdownOnComplete || shutdownRequestedRef.current) return;
+
+    shutdownRequestedRef.current = true;
+    const w = window as any;
+
+    if (typeof w.sendNotification === 'function') {
+      w.sendNotification('Downloads Finished', 'Forced shutdown will begin in 5 seconds.');
+    }
+
+    try {
+      if (typeof w.shutdownSystem !== 'function') {
+        throw new Error('System shutdown is only available in the desktop app.');
+      }
+
+      const result = await w.shutdownSystem(5);
+      if (!result?.success) {
+        throw new Error(result?.error || 'The shutdown command could not be started.');
+      }
+    } catch (e) {
+      shutdownRequestedRef.current = false;
+      window.alert(`Shutdown on Complete failed:\n\n${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -624,6 +654,7 @@ const App: React.FC = () => {
 
     await Promise.all(downloadPromises);
     setIsProcessing(false);
+    await requestShutdownAfterDownloads();
   };
 
   const startSequentialDownload = async (currentQueue: DownloadItem[]) => {
@@ -634,12 +665,13 @@ const App: React.FC = () => {
       if (index >= currentQueue.length) {
         setIsProcessing(false);
         setCurrentIndex(-1);
+        await requestShutdownAfterDownloads();
         return;
       }
 
       const item = currentQueue[index];
       if (item.status === DownloadStatus.COMPLETED || item.status === DownloadStatus.FAILED) {
-        processNext(index + 1);
+        await processNext(index + 1);
         return;
       }
 
@@ -667,7 +699,7 @@ const App: React.FC = () => {
           w.sendNotification('Download Complete', `Successfully downloaded: ${item.filename}`);
         }
         // Continue to next item
-        processNext(index + 1);
+        await processNext(index + 1);
       } catch (e) {
         if (isQuittingForResumeRef.current) return;
         updateItemLogsSmart(item.id, `[Error] ${e instanceof Error ? e.message : String(e)}`);
@@ -684,7 +716,7 @@ const App: React.FC = () => {
             if (typeof w2.sendNotification === 'function') {
               w2.sendNotification('Download Complete (Retry)', `Successfully downloaded: ${item.filename}`);
             }
-            processNext(index + 1);
+            await processNext(index + 1);
             return;
           } catch (retryErr) {
             updateItemLogsSmart(item.id, `[Error] Auto-retry also failed: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`);
@@ -700,11 +732,11 @@ const App: React.FC = () => {
           w.sendNotification('Download Failed', `Failed to download: ${item.filename}`);
         }
         // Continue to next item on failure
-        processNext(index + 1);
+        await processNext(index + 1);
       }
     };
 
-    processNext(0);
+    await processNext(0);
   };
 
   const realYtDlpDownload = async (item: DownloadItem) => {
@@ -1320,12 +1352,20 @@ const App: React.FC = () => {
             <div className="md:col-span-7 lg:col-span-8 xl:col-span-9 h-full flex flex-col space-y-6 overflow-hidden">
               {totalItems > 0 && (
                 <div className="flex-1 min-h-0 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col shadow-sm dark:shadow-none">
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0">
-                    <h3 className="font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                      <i className="fa-solid fa-layer-group text-slate-400"></i>
-                      Batch List
-                    </h3>
-                    <div className="flex items-center gap-6">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-3 md:flex-row md:justify-between md:items-center shrink-0">
+                    <div className="min-w-0">
+                      <h3 className="font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                        <i className="fa-solid fa-layer-group text-slate-400"></i>
+                        Batch List
+                      </h3>
+                      {settings.shutdownOnComplete && (
+                        <p className="mt-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
+                          <i className="fa-solid fa-power-off"></i>
+                          Shutdown on complete is enabled. This PC will force shutdown 5 seconds after the batch finishes.
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 md:gap-6 md:justify-end">
                       <label className="flex items-center gap-2 cursor-pointer group select-none">
                         <div className="relative flex items-center">
                           <input

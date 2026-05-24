@@ -170,6 +170,22 @@ const SettingsModal: React.FC<Props> = ({ settings, onSave, onClose }) => {
                 </button>
               </div>
 
+              <div className="flex items-center justify-between bg-red-500/5 p-4 rounded-2xl border border-red-500/15">
+                <div>
+                  <p className="text-sm font-bold text-red-600 dark:text-red-400">Shutdown on Complete</p>
+                  <p className="text-xs text-slate-500">Force shut down this computer 5 seconds after the active batch finishes.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLocalSettings(prev => ({ ...prev, shutdownOnComplete: !prev.shutdownOnComplete }))}
+                  className={`group relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 focus:outline-none shrink-0 ${localSettings.shutdownOnComplete ? 'bg-red-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 shadow-sm ${localSettings.shutdownOnComplete ? 'translate-x-6' : 'translate-x-1'}`}
+                  />
+                </button>
+              </div>
+
               <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/50">
                 <div className="flex-[0.7]">
                   <p className="text-sm font-bold text-slate-800 dark:text-white">Download Speed Limit</p>

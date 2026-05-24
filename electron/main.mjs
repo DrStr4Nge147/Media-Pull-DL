@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell, Menu, session, Tray, Notification }
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
-import { execSync as execSyncFn, spawnSync } from 'node:child_process';
+import { execSync as execSyncFn, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { runYtDlp, getYtDlpVersion, updateYtDlp, getVideoMetadata, getPlaylistMetadata, bootstrapYtDlp } from './yt-dlp-runner.mjs';
 
@@ -212,6 +212,42 @@ ipcMain.handle('send-notification', async (_event, { title, body }) => {
     notification.show();
   }
   return true;
+});
+
+ipcMain.handle('shutdown-system', async (_event, { delaySeconds } = {}) => {
+  const safeDelay = Number.isFinite(Number(delaySeconds))
+    ? Math.max(5, Math.floor(Number(delaySeconds)))
+    : 5;
+  const command = process.platform === 'win32' ? 'shutdown.exe' : 'shutdown';
+  const args = process.platform === 'win32'
+    ? ['/s', '/f', '/t', String(safeDelay), '/c', 'Media-Pull DL finished all downloads. Forced shutdown is starting.']
+    : ['-h', 'now'];
+
+  return new Promise((resolve) => {
+    const startShutdown = () => {
+      const child = spawn(command, args, {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+
+      child.once('error', (error) => {
+        console.error('[System] Failed to schedule shutdown:', error);
+        resolve({ success: false, error: error instanceof Error ? error.message : String(error) });
+      });
+
+      child.once('spawn', () => {
+        child.unref();
+        resolve({ success: true });
+      });
+    };
+
+    if (process.platform === 'win32') {
+      startShutdown();
+    } else {
+      setTimeout(startShutdown, safeDelay * 1000);
+    }
+  });
 });
 
 ipcMain.handle('run-yt-dlp', async (event, payload) => {

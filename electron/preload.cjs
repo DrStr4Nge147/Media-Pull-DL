@@ -106,6 +106,10 @@ contextBridge.exposeInMainWorld('sendNotification', (title, body) => {
   return ipcRenderer.invoke('send-notification', { title, body });
 });
 
+contextBridge.exposeInMainWorld('shutdownSystem', (delaySeconds = 5) => {
+  return ipcRenderer.invoke('shutdown-system', { delaySeconds });
+});
+
 
 contextBridge.exposeInMainWorld('getAppVersion', () => {
   return ipcRenderer.invoke('get-app-version');

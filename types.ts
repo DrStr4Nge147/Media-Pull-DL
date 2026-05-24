@@ -42,6 +42,7 @@ export interface AppSettings {
   autoRetry?: boolean;
   mimicHumanDownload?: boolean;
   downloadSpeedLimit?: string;
+  shutdownOnComplete?: boolean;
 }
 
 export interface Preset {
