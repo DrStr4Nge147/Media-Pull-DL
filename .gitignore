@@ -43,3 +43,6 @@ vite.config.ts.timestamp-*
 
 # Static Website
 Website/
+
+#batch file
+Push.bat

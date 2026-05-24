@@ -9,6 +9,113 @@ import ConfirmationModal from './components/ConfirmationModal';
 import FloatingProgress from './components/FloatingProgress';
 import { v4 as uuidv4 } from 'uuid';
 
+const RESUME_QUEUE_STORAGE_KEY = 'yt_dlp_resume_queue';
+
+interface ResumeQueueState {
+  items: DownloadItem[];
+  downloadStrategy: DownloadStrategy;
+  savedAt: number;
+}
+
+const isResumableStatus = (status: DownloadStatus) =>
+  status === DownloadStatus.PENDING ||
+  status === DownloadStatus.DOWNLOADING ||
+  status === DownloadStatus.PAUSED;
+
+const appendUniqueLog = (logs: string[] | undefined, log: string) => {
+  const safeLogs = Array.isArray(logs) ? logs : [];
+  return safeLogs.includes(log) ? safeLogs : [...safeLogs, log];
+};
+
+const buildResumeQueueState = (
+  items: DownloadItem[],
+  downloadStrategy: DownloadStrategy,
+  markInterrupted = false
+): ResumeQueueState => {
+  const resumableItems = items
+    .filter(item => isResumableStatus(item.status))
+    .map(item => {
+      const wasDownloading = item.status === DownloadStatus.DOWNLOADING;
+      const logs = markInterrupted && wasDownloading
+        ? appendUniqueLog(item.logs, '[System] App closed before this download finished. It will resume from partial files on next launch.')
+        : item.logs;
+
+      return {
+        ...item,
+        status: wasDownloading ? DownloadStatus.PENDING : item.status,
+        logs,
+      };
+    });
+
+  return {
+    items: resumableItems,
+    downloadStrategy,
+    savedAt: Date.now(),
+  };
+};
+
+const writeResumeQueueState = (
+  items: DownloadItem[],
+  downloadStrategy: DownloadStrategy,
+  markInterrupted = false
+) => {
+  try {
+    const state = buildResumeQueueState(items, downloadStrategy, markInterrupted);
+    if (state.items.length === 0) {
+      localStorage.removeItem(RESUME_QUEUE_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(RESUME_QUEUE_STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error('Failed to persist resumable queue:', e);
+  }
+};
+
+const readResumeQueueState = (): ResumeQueueState => {
+  const emptyState: ResumeQueueState = {
+    items: [],
+    downloadStrategy: 'SEQUENTIAL',
+    savedAt: 0,
+  };
+
+  try {
+    const saved = localStorage.getItem(RESUME_QUEUE_STORAGE_KEY);
+    if (!saved) return emptyState;
+
+    const parsed = JSON.parse(saved);
+    const parsedItems = Array.isArray(parsed?.items) ? parsed.items : [];
+    const downloadStrategy: DownloadStrategy =
+      parsed?.downloadStrategy === 'SIMULTANEOUS' ? 'SIMULTANEOUS' : 'SEQUENTIAL';
+
+    const items = parsedItems
+      .filter((item: DownloadItem) => item && isResumableStatus(item.status))
+      .map((item: DownloadItem) => {
+        const wasInterrupted = item.status === DownloadStatus.DOWNLOADING || item.status === DownloadStatus.PENDING;
+        const restoredLog = wasInterrupted
+          ? '[System] Restored unfinished download. Resume will continue from existing partial files where available.'
+          : '[System] Restored paused download from previous session.';
+
+        return {
+          ...item,
+          id: item.id || uuidv4(),
+          status: item.status === DownloadStatus.PAUSED ? DownloadStatus.PAUSED : DownloadStatus.PENDING,
+          progress: typeof item.progress === 'number' ? item.progress : 0,
+          logs: appendUniqueLog(item.logs, restoredLog),
+          timestamp: item.timestamp || Date.now(),
+        };
+      });
+
+    return {
+      items,
+      downloadStrategy,
+      savedAt: typeof parsed?.savedAt === 'number' ? parsed.savedAt : 0,
+    };
+  } catch (e) {
+    console.error('Failed to parse resumable queue:', e);
+    localStorage.removeItem(RESUME_QUEUE_STORAGE_KEY);
+    return emptyState;
+  }
+};
 
 const DEFAULT_SETTINGS: AppSettings = {
   defaultDestination: './Media-Pull DL',
@@ -31,11 +138,14 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 const App: React.FC = () => {
-  const [viewMode, setViewMode] = useState<ViewMode | null>(null);
-  const [queue, setQueue] = useState<DownloadItem[]>([]);
+  const [restoredQueueState] = useState<ResumeQueueState>(() => readResumeQueueState());
+  const autoResumeAttemptedRef = useRef(false);
+  const isQuittingForResumeRef = useRef(false);
+  const [viewMode, setViewMode] = useState<ViewMode | null>(() => restoredQueueState.items.length > 0 ? 'QUEUE' : null);
+  const [queue, setQueue] = useState<DownloadItem[]>(() => restoredQueueState.items);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(-1);
-  const [downloadStrategy, setDownloadStrategy] = useState<DownloadStrategy>('SEQUENTIAL');
+  const [downloadStrategy, setDownloadStrategy] = useState<DownloadStrategy>(restoredQueueState.downloadStrategy);
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('yt_dlp_settings');
     if (saved) {
@@ -388,6 +498,25 @@ const App: React.FC = () => {
     localStorage.setItem('yt_dlp_history', JSON.stringify(history));
   }, [history]);
 
+  // Resume queue persistence. Completed and failed items stay out of this snapshot.
+  useEffect(() => {
+    writeResumeQueueState(queue, downloadStrategy);
+  }, [queue, downloadStrategy]);
+
+  useEffect(() => {
+    const persistInterruptedQueue = () => {
+      writeResumeQueueState(queue, downloadStrategy, true);
+    };
+
+    window.addEventListener('beforeunload', persistInterruptedQueue);
+    window.addEventListener('pagehide', persistInterruptedQueue);
+
+    return () => {
+      window.removeEventListener('beforeunload', persistInterruptedQueue);
+      window.removeEventListener('pagehide', persistInterruptedQueue);
+    };
+  }, [queue, downloadStrategy]);
+
   const addToQueue = (itemData: Omit<DownloadItem, 'id' | 'status' | 'progress' | 'logs' | 'timestamp'>) => {
     const isDuplicate = queue.some(i => i.url === itemData.url) || history.some(i => i.url === itemData.url);
     if (isDuplicate && viewMode !== 'SINGLE') {
@@ -462,6 +591,7 @@ const App: React.FC = () => {
           w.sendNotification('Download Complete', `Successfully downloaded: ${item.filename}`);
         }
       } catch (e) {
+        if (isQuittingForResumeRef.current) return;
         updateItemLogsSmart(item.id, `[Error] ${e instanceof Error ? e.message : String(e)}`);
 
         // Auto-retry logic
@@ -539,6 +669,7 @@ const App: React.FC = () => {
         // Continue to next item
         processNext(index + 1);
       } catch (e) {
+        if (isQuittingForResumeRef.current) return;
         updateItemLogsSmart(item.id, `[Error] ${e instanceof Error ? e.message : String(e)}`);
 
         // Auto-retry logic
@@ -738,6 +869,28 @@ const App: React.FC = () => {
     setViewMode(null);
   };
 
+  useEffect(() => {
+    if (autoResumeAttemptedRef.current) return;
+    if (restoredQueueState.items.length === 0) return;
+    if (isProcessing || isUpdating) return;
+
+    autoResumeAttemptedRef.current = true;
+
+    const hasPendingResume = queue.some(item => item.status === DownloadStatus.PENDING);
+    const firstItem = queue[0];
+    if (firstItem) {
+      setSelectedItemId(firstItem.id);
+    }
+
+    if (!hasPendingResume) return;
+
+    const timer = window.setTimeout(() => {
+      startBatchDownload(queue);
+    }, 750);
+
+    return () => window.clearTimeout(timer);
+  }, [isProcessing, isUpdating, queue, restoredQueueState.items.length]);
+
   const getActiveActivity = useCallback(() => {
     const activeDownloads = queue.filter(i => i.status === DownloadStatus.DOWNLOADING).length;
     const pendingDownloads = queue.filter(i => i.status === DownloadStatus.PENDING).length;
@@ -751,19 +904,25 @@ const App: React.FC = () => {
     return activities;
   }, [queue, isProcessing, isUpdating, isDownloadingApp]);
 
+  const forceQuitWithResumeSnapshot = useCallback(() => {
+    isQuittingForResumeRef.current = true;
+    writeResumeQueueState(queue, downloadStrategy, true);
+    const w = window as any;
+    if (w.appForceQuit) {
+      w.appForceQuit();
+    } else {
+      w.windowControls?.close();
+    }
+  }, [queue, downloadStrategy]);
+
   const handleCloseAttempt = useCallback(() => {
     const activities = getActiveActivity();
     if (activities.length > 0) {
       setShowExitConfirm(true);
     } else {
-      const w = window as any;
-      if (w.appForceQuit) {
-        w.appForceQuit();
-      } else {
-        w.windowControls?.close();
-      }
+      forceQuitWithResumeSnapshot();
     }
-  }, [getActiveActivity]);
+  }, [forceQuitWithResumeSnapshot, getActiveActivity]);
 
   useEffect(() => {
     const w = window as any;
@@ -1368,7 +1527,7 @@ const App: React.FC = () => {
                 </button>
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => (window as any).appForceQuit()}
+                    onClick={forceQuitWithResumeSnapshot}
                     className="py-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 border border-red-500/30"
                   >
                     <i className="fa-solid fa-power-off"></i>
